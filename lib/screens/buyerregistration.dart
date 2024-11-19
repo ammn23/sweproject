@@ -25,15 +25,7 @@ class _BuyerRegistrationPageState extends State<BuyerRegistrationPage> {
   void _submitForm() {
     if (_formKey.currentState?.validate() ?? false) {
       // Normally here you'd send the data to the backend to register the buyer
-      print('Buyer Registered');
-      print('User ID: $userid');
-      print('Email: ${_emailController.text}');
-      print('Name: ${_nameController.text}');
-      print('Phone Number: ${_phoneNumberController.text}');
-      print('Password: ${_passwordController.text}');
-      print('Username: ${_usernameController.text}');
-      print('Payment Method: ${_paymentMethodController.text}');
-      print('Delivery Address: ${_deliveryAddressController.text}');
+      
 
       // Clear the form
       _emailController.clear();
