@@ -17,45 +17,49 @@ class _BuyerRegistrationPageState extends State<BuyerRegistrationPage> {
   final TextEditingController _phoneNumberController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _paymentMethodController = TextEditingController();
-  final TextEditingController _deliveryAddressController = TextEditingController();
+  final TextEditingController _paymentMethodController =
+      TextEditingController();
+  final TextEditingController _deliveryAddressController =
+      TextEditingController();
 
   // Assuming userid is fetched from authenticated user session or context
-  int userid = 123; // Example, this should come from user context/authentication
+  int userid =
+      123; // Example, this should come from user context/authentication
 
   // Form submission function
-  Future<void> _submitForm() async{
+  Future<void> _submitForm() async {
     if (_formKey.currentState?.validate() ?? false) {
       final ApiService apiService = ApiService(baseUrl: 'https://yourapi.com');
 
       final success = await apiService.registerBuyer(
-              userid: 123,
-              email: _emailController.text,
-              name: _nameController.text,
-              phoneNumber: _phoneNumberController.text,
-              password: _passwordController.text,
-              username: _usernameController.text,
-              paymentMethod: _paymentMethodController.text,
-              deliveryAddress: _deliveryAddressController.text,
-            );
+        userid: 123,
+        email: _emailController.text,
+        name: _nameController.text,
+        phoneNumber: _phoneNumberController.text,
+        password: _passwordController.text,
+        username: _usernameController.text,
+        paymentMethod: _paymentMethodController.text,
+        deliveryAddress: _deliveryAddressController.text,
+      );
 
-      
-      if (success){
+      if (success) {
         // Clear the form
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Registration completed.Wait for approval'))
-        );
-        _emailController.clear();
-        _nameController.clear();
-        _phoneNumberController.clear();
-        _passwordController.clear();
-        _usernameController.clear();
-        _paymentMethodController.clear();
-        _deliveryAddressController.clear();
-      } else{
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Registration failed'))
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Registration completed.Wait for approval')));
+          _emailController.clear();
+          _nameController.clear();
+          _phoneNumberController.clear();
+          _passwordController.clear();
+          _usernameController.clear();
+          _paymentMethodController.clear();
+          _deliveryAddressController.clear();
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Registration failed')));
+        }
       }
     }
   }
@@ -194,5 +198,3 @@ class _BuyerRegistrationPageState extends State<BuyerRegistrationPage> {
     );
   }
 }
-
-

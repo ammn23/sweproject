@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'dart:developer' as developer;
 
 class ApiService {
   final String baseUrl;
@@ -38,7 +39,7 @@ class ApiService {
       return true; // Registration successful
     } else {
       // Handle error (e.g., log the response body)
-      print('Error: ${response.body}');
+      developer.log('Error: ${response.body}');
       return false; // Registration failed
     }
   }
