@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:farmersmarketflutter/service.dart';
 
 class BuyerRegistrationPage extends StatefulWidget {
   const BuyerRegistrationPage({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _BuyerRegistrationPageState createState() => _BuyerRegistrationPageState();
 }
 
@@ -22,19 +24,39 @@ class _BuyerRegistrationPageState extends State<BuyerRegistrationPage> {
   int userid = 123; // Example, this should come from user context/authentication
 
   // Form submission function
-  void _submitForm() {
+  Future<void> _submitForm() async{
     if (_formKey.currentState?.validate() ?? false) {
-      // Normally here you'd send the data to the backend to register the buyer
-      
+      final ApiService apiService = ApiService(baseUrl: 'https://yourapi.com');
 
-      // Clear the form
-      _emailController.clear();
-      _nameController.clear();
-      _phoneNumberController.clear();
-      _passwordController.clear();
-      _usernameController.clear();
-      _paymentMethodController.clear();
-      _deliveryAddressController.clear();
+      final success = await apiService.registerBuyer(
+              userid: 123,
+              email: _emailController.text,
+              name: _nameController.text,
+              phoneNumber: _phoneNumberController.text,
+              password: _passwordController.text,
+              username: _usernameController.text,
+              paymentMethod: _paymentMethodController.text,
+              deliveryAddress: _deliveryAddressController.text,
+            );
+
+      
+      if (success){
+        // Clear the form
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Registration completed.Wait for approval'))
+        );
+        _emailController.clear();
+        _nameController.clear();
+        _phoneNumberController.clear();
+        _passwordController.clear();
+        _usernameController.clear();
+        _paymentMethodController.clear();
+        _deliveryAddressController.clear();
+      } else{
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Registration failed'))
+        );
+      }
     }
   }
 
@@ -172,4 +194,5 @@ class _BuyerRegistrationPageState extends State<BuyerRegistrationPage> {
     );
   }
 }
+
 
