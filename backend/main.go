@@ -159,6 +159,10 @@ func registerFarmer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return success response
+	log.Printf("Rsponse Status: %d", http.StatusOK)
+	response := map[string]string{"message": "Farmer registered successfully"}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Farmer registered successfully"))
 }
