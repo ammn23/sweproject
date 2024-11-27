@@ -1,8 +1,21 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // This is where you should define the version of the Android Gradle Plugin
+        classpath 'com.android.tools.build:gradle:8.0.0'  // Make sure this line is in the dependencies block
+    }
+}
+
+
 allprojects {
     repositories {
         google()
         mavenCentral()
     }
+    
 }
 
 rootProject.buildDir = "../build"
