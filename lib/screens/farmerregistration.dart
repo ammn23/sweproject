@@ -40,7 +40,7 @@ class _FarmerRegistrationPageState extends State<FarmerRegistrationPage> {
   String userName = '';
 
   // REST API endpoint for registration
-  final String apiUrl = 'http://localhost:8080/register_farmer';
+  final String apiUrl = 'http://10.0.2.2:8080/register_farmer';  // for Android Emulator
 
   Future<void> _registerFarmer() async {
     if (_formKey.currentState!.validate()) {
