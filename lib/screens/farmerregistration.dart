@@ -32,15 +32,15 @@ class _FarmerRegistrationPageState extends State<FarmerRegistrationPage> {
   final _formKey = GlobalKey<FormState>();
   String name = '';
   String email = '';
-  String phoneNumber = '';
-  String farmAddress = '';
+  int phoneNumber = 0;              // need to change type
+  String location = '';              // need to change name of var to location
   double farmSize = 0.0;
-  String crops = '';
-  String governmentId = '';
+  String govid = '';             // change name to govid
   String errorMessage = '';
+  String userName = '';
 
   // REST API endpoint for registration
-  final String apiUrl = 'https://your-api-url.com/register_farmer';
+  final String apiUrl = 'http://localhost:8080/register_farmer';
 
   Future<void> _registerFarmer() async {
     if (_formKey.currentState!.validate()) {
@@ -49,10 +49,10 @@ class _FarmerRegistrationPageState extends State<FarmerRegistrationPage> {
         'name': name,
         'email': email,
         'phone_number': phoneNumber,
-        'farm_address': farmAddress,
+        'location': location,
         'farm_size': farmSize.toString(),
-        'crops': crops,
-        'government_id': governmentId,
+        'govid': govid,
+        'username': userName,
       };
       try {
         // Send POST request to the backend
