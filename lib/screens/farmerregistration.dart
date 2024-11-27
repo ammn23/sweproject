@@ -129,7 +129,7 @@ class _FarmerRegistrationPageState extends State<FarmerRegistrationPage> {
                   }
                   return null;
                 },
-                onChanged: (value) => setState(() => phoneNumber = value),
+                onChanged: (value) => setState(() => phoneNumber = int.parse(value)),
               ),
               TextFormField(
                 decoration: const InputDecoration(labelText: 'Farm Address'),
@@ -139,7 +139,7 @@ class _FarmerRegistrationPageState extends State<FarmerRegistrationPage> {
                   }
                   return null;
                 },
-                onChanged: (value) => setState(() => farmAddress = value),
+                onChanged: (value) => setState(() => location = value),
               ),
               TextFormField(
                 decoration: const InputDecoration(labelText: 'Farm Size (acres)'),
@@ -156,16 +156,6 @@ class _FarmerRegistrationPageState extends State<FarmerRegistrationPage> {
                 onChanged: (value) => setState(() => farmSize = double.parse(value)),
               ),
               TextFormField(
-                decoration: const InputDecoration(labelText: 'Types of Crops'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter the types of crops';
-                  }
-                  return null;
-                },
-                onChanged: (value) => setState(() => crops = value),
-              ),
-              TextFormField(
                 decoration: const InputDecoration(labelText: 'Government Issued ID'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -173,7 +163,7 @@ class _FarmerRegistrationPageState extends State<FarmerRegistrationPage> {
                   }
                   return null;
                 },
-                onChanged: (value) => setState(() => governmentId = value),
+                onChanged: (value) => setState(() => govid = value),
               ),
               const SizedBox(height: 20),
               if (errorMessage.isNotEmpty) 
