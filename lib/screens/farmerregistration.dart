@@ -51,11 +51,17 @@ class _FarmerRegistrationPageState extends State<FarmerRegistrationPage> {
         'email': email,
         'phone_number': phoneNumber,
         'location': location,
-        'farm_size': farmSize.toString(),
+        'farm_size': farmSize,
         'govid': govid,
         'username': userName,
         'password': password,
       };
+
+      String jsonData = json.encode(registrationData);
+
+    // Print the JSON data to the console
+      debugPrint('Sending JSON data: $jsonData');
+
       try {
         // Send POST request to the backend
         final response = await http.post(
