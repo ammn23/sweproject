@@ -34,10 +34,10 @@ type Farm struct {
 
 func registerFarmer(w http.ResponseWriter, r *http.Request) {
 
-	connStr := "user=youruser dbname=yourdb password=yourpassword host=localhost port=5432 sslmode=disable"
+	connStr := "user=postgres dbname=farmersmarket password=2004Amina host=farmersmarket.cpywg2ws46ft.eu-north-1.rds.amazonaws.com port=5432 sslmode=disable"
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Error connecting to the database: %v", err), http.StatusInternalServerError)
 		return
 	}
 	defer db.Close()
@@ -84,7 +84,7 @@ func registerFarmer(w http.ResponseWriter, r *http.Request) {
 	var farmerID int
 	err = db.QueryRow(`
 		INSERT INTO public.farmer (userid, govid)
-		VALUES ($1, $2) RETURNING farmerid
+		VALUES ($1, $2) RETURNING farmerID
 	`, farmer.UserID, farmer.GovID).Scan(&farmerID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error inserting farmer: %v", err), http.StatusInternalServerError)
