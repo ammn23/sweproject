@@ -32,6 +32,120 @@ type Farm struct {
 	Name     string  `json:"name"`
 }
 
+type Buyer struct {
+	BuyerID       int    `json:"buyer_id"`
+	UserID        int    `json:"user_id"`
+	DeliveryAddr  string `json:"delivery_address"`
+	PaymentMethod string `json:"payment_method"`
+}
+
+func registerBuyer(w http.ResponseWriter, r *http.Request) {
+	connStr := "user=postgres dbname=farmersmarket password=2004Amina host=farmersmarket.cpywg2ws46ft.eu-north-1.rds.amazonaws.com port=5432 sslmode=require"
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Printf("Database connection error: %v", err)
+		http.Error(w, fmt.Sprintf("Error connecting to the database: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		log.Println("Request made with invalid HTTP method")
+		return
+	}
+
+	var registrationData map[string]interface{}
+	decoder := json.NewDecoder(r.Body)
+	err = decoder.Decode(&registrationData)
+	if err != nil {
+		log.Printf("JSON decoding error: %v", err)
+		http.Error(w, fmt.Sprintf("Error decoding JSON: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// Extract and validate fields
+	name, ok := registrationData["name"].(string)
+	if !ok {
+		http.Error(w, "Missing or invalid 'name' field", http.StatusBadRequest)
+		log.Println("Error: 'name' field is missing or invalid")
+		return
+	}
+
+	email, ok := registrationData["email"].(string)
+	if !ok {
+		http.Error(w, "Missing or invalid 'email' field", http.StatusBadRequest)
+		log.Println("Error: 'email' field is missing or invalid")
+		return
+	}
+
+	phoneNumberFloat, ok := registrationData["phone_number"].(float64)
+	if !ok {
+		http.Error(w, "Missing or invalid 'phone_number' field", http.StatusBadRequest)
+		log.Println("Error: 'phone_number' field is missing or invalid")
+		return
+	}
+	phoneNumber := int(phoneNumberFloat)
+
+	deliveryAddress, ok := registrationData["delivery_address"].(string)
+	if !ok {
+		http.Error(w, "Missing or invalid 'delivery_address' field", http.StatusBadRequest)
+		log.Println("Error: 'delivery_address' field is missing or invalid")
+		return
+	}
+
+	paymentMethod, ok := registrationData["payment_method"].(string)
+	if !ok {
+		http.Error(w, "Missing or invalid 'payment_method' field", http.StatusBadRequest)
+		log.Println("Error: 'payment_method' field is missing or invalid")
+		return
+	}
+
+	username, ok := registrationData["username"].(string)
+	if !ok {
+		http.Error(w, "Missing or invalid 'username' field", http.StatusBadRequest)
+		log.Println("Error: 'username' field is missing or invalid")
+		return
+	}
+
+	password, ok := registrationData["password"].(string)
+	if !ok {
+		http.Error(w, "Missing or invalid 'password' field", http.StatusBadRequest)
+		log.Println("Error: 'password' field is missing or invalid")
+		return
+	}
+
+	// Insert into users table
+	var userID int
+	err = db.QueryRow(`
+		INSERT INTO public.users (email, name, phone_number, password, username)
+		VALUES ($1, $2, $3, $4, $5) RETURNING userID
+	`, email, name, phoneNumber, password, username).Scan(&userID)
+	if err != nil {
+		log.Printf("Database insertion error for user: %v", err)
+		http.Error(w, fmt.Sprintf("Error inserting user: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Insert into buyers table
+	_, err = db.Exec(`
+		INSERT INTO public.buyer (userid, delivery_address, payment_method)
+		VALUES ($1, $2, $3)
+	`, userID, deliveryAddress, paymentMethod)
+	if err != nil {
+		log.Printf("Database insertion error for buyer: %v", err)
+		http.Error(w, fmt.Sprintf("Error inserting buyer: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Success response
+	log.Printf("Buyer registered successfully with UserID: %d", userID)
+	response := map[string]string{"message": "Buyer registered successfully"}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
 func registerFarmer(w http.ResponseWriter, r *http.Request) {
 	connStr := "user=postgres dbname=farmersmarket password=2004Amina host=farmersmarket.cpywg2ws46ft.eu-north-1.rds.amazonaws.com port=5432 sslmode=require"
 	db, err := sql.Open("postgres", connStr)
@@ -160,6 +274,7 @@ func registerFarmer(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/register_farmer", registerFarmer)
+	http.HandleFunc("/register_buyer", registerBuyer)
 	fmt.Println("Server is running at http://localhost:8080")
 	log.Println("Server started on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
