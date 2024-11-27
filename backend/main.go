@@ -33,8 +33,7 @@ type Farm struct {
 }
 
 func registerFarmer(w http.ResponseWriter, r *http.Request) {
-
-	connStr := "user=postgres dbname=farmersmarket password=2004Amina host=farmersmarket.cpywg2ws46ft.eu-north-1.rds.amazonaws.com port=5432 sslmode=disable"
+	connStr := "user=postgres dbname=farmersmarket password=2004Amina host=farmersmarket.cpywg2ws46ft.eu-north-1.rds.amazonaws.com port=5432 sslmode=require"
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error connecting to the database: %v", err), http.StatusInternalServerError)
@@ -51,16 +50,49 @@ func registerFarmer(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	err = decoder.Decode(&registrationData)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Error decoding JSON: %v", err), http.StatusBadRequest)
 		return
 	}
+
+	// Safe type assertions with error handling
+	name, ok := registrationData["name"].(string)
+	if !ok {
+		http.Error(w, "Missing or invalid 'name' field", http.StatusBadRequest)
+		return
+	}
+
+	email, ok := registrationData["email"].(string)
+	if !ok {
+		http.Error(w, "Missing or invalid 'email' field", http.StatusBadRequest)
+		return
+	}
+
+	phoneNumberFloat, ok := registrationData["phone_number"].(float64)
+	if !ok {
+		http.Error(w, "Missing or invalid 'phone_number' field", http.StatusBadRequest)
+		return
+	}
+	phoneNumber := int(phoneNumberFloat)
+
+	password, ok := registrationData["password"].(string)
+	if !ok {
+		http.Error(w, "Missing or invalid 'password' field", http.StatusBadRequest)
+		return
+	}
+
+	username, ok := registrationData["username"].(string)
+	if !ok {
+		http.Error(w, "Missing or invalid 'username' field", http.StatusBadRequest)
+		return
+	}
+
 	// Create user
 	user := Users{
-		Email:       registrationData["email"].(string),
-		Name:        registrationData["name"].(string),
-		PhoneNumber: int(registrationData["phone_number"].(float64)),
-		Password:    registrationData["password"].(string),
-		Username:    registrationData["username"].(string),
+		Email:       email,
+		Name:        name,
+		PhoneNumber: phoneNumber,
+		Password:    password,
+		Username:    username,
 	}
 
 	// Insert into users table
@@ -75,9 +107,14 @@ func registerFarmer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create farmer
+	govid, ok := registrationData["govid"].(string)
+	if !ok {
+		http.Error(w, "Missing or invalid 'govid' field", http.StatusBadRequest)
+		return
+	}
 	farmer := Farmer{
 		UserID: userID,
-		GovID:  registrationData["govid"].(string),
+		GovID:  govid,
 	}
 
 	// Insert into farmer table
@@ -92,11 +129,23 @@ func registerFarmer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create farm
+	location, ok := registrationData["location"].(string)
+	if !ok {
+		http.Error(w, "Missing or invalid 'location' field", http.StatusBadRequest)
+		return
+	}
+
+	farmSize, ok := registrationData["farm_size"].(float64)
+	if !ok {
+		http.Error(w, "Missing or invalid 'farm_size' field", http.StatusBadRequest)
+		return
+	}
+
 	farm := Farm{
 		FarmerID: farmerID,
-		Location: registrationData["location"].(string),
-		Size:     registrationData["farm_size"].(float64),
-		Name:     registrationData["name"].(string),
+		Location: location,
+		Size:     farmSize,
+		Name:     name + "'s Farm", // You can customize this as per your need
 	}
 
 	// Insert into farm table
