@@ -32,6 +32,7 @@ class _FarmerRegistrationPageState extends State<FarmerRegistrationPage> {
   final _formKey = GlobalKey<FormState>();
   String name = '';
   String email = '';
+  String password = '';
   int phoneNumber = 0;              // need to change type
   String location = '';              // need to change name of var to location
   double farmSize = 0.0;
@@ -53,6 +54,7 @@ class _FarmerRegistrationPageState extends State<FarmerRegistrationPage> {
         'farm_size': farmSize.toString(),
         'govid': govid,
         'username': userName,
+        'password': password,
       };
       try {
         // Send POST request to the backend
@@ -102,6 +104,26 @@ class _FarmerRegistrationPageState extends State<FarmerRegistrationPage> {
                   return null;
                 },
                 onChanged: (value) => setState(() => name = value),
+              ),
+              TextFormField(
+                decoration: const InputDecoration(labelText: 'Username'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your username';
+                  }
+                  return null;
+                },
+                onChanged: (value) => setState(() => userName = value),
+              ),
+              TextFormField(
+                decoration: const InputDecoration(labelText: 'Password'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your password';
+                  }
+                  return null;
+                },
+                onChanged: (value) => setState(() => password = value),
               ),
               TextFormField(
                 decoration: const InputDecoration(labelText: 'Email'),
