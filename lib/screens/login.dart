@@ -12,7 +12,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  String email = '';
+  String identifier = '';
   String password = '';
   String role = 'Farmer'; // Default role
   String errorMessage = '';
@@ -23,7 +23,7 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _authenticateUser() async {
     if (_formKey.currentState!.validate()) {
       final loginData = {
-        'email': email,
+        'identifier': identifier,
         'password': password,
         'role': role,
       };
@@ -80,14 +80,14 @@ class _LoginPageState extends State<LoginPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextFormField(
-                decoration: const InputDecoration(labelText: 'Email'),
+                decoration: const InputDecoration(labelText: 'Email or Username'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your email';
+                    return 'Please enter your email or username';
                   }
                   return null;
                 },
-                onChanged: (value) => setState(() => email = value),
+                onChanged: (value) => setState(() => identifier = value),
               ),
               TextFormField(
                 decoration: const InputDecoration(labelText: 'Password'),
