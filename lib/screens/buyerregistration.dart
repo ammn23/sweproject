@@ -13,7 +13,7 @@ class _BuyerRegistrationPageState extends State<BuyerRegistrationPage> {
   final _formKey = GlobalKey<FormState>();
   String name = '';
   String email = '';
-  String phoneNumber = '';
+  int phoneNumber = 0;
   String deliveryAddress = '';
   String paymentMethod = '';
   String errorMessage = '';
@@ -108,7 +108,7 @@ class _BuyerRegistrationPageState extends State<BuyerRegistrationPage> {
                   }
                   return null;
                 },
-                onChanged: (value) => setState(() => phoneNumber = value),
+                onChanged: (value) => setState(() => phoneNumber = int.parse(value)),
               ),
               TextFormField(
                 decoration: const InputDecoration(labelText: 'Username'),
