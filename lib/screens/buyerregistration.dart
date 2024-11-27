@@ -17,6 +17,8 @@ class _BuyerRegistrationPageState extends State<BuyerRegistrationPage> {
   String deliveryAddress = '';
   String paymentMethod = '';
   String errorMessage = '';
+  String userName = '';
+  String password = '';
 
   // REST API endpoint for buyer registration
   final String apiUrl = 'https://your-api-url.com/register_buyer';
@@ -26,6 +28,8 @@ class _BuyerRegistrationPageState extends State<BuyerRegistrationPage> {
       final registrationData = {
         'name': name,
         'email': email,
+        'username': userName,
+        'password': password,
         'phone_number': phoneNumber,
         'delivery_address': deliveryAddress,
         'payment_method': paymentMethod,
@@ -107,6 +111,26 @@ class _BuyerRegistrationPageState extends State<BuyerRegistrationPage> {
                 onChanged: (value) => setState(() => phoneNumber = value),
               ),
               TextFormField(
+                decoration: const InputDecoration(labelText: 'Username'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your username';
+                  }
+                  return null;
+                },
+                onChanged: (value) => setState(() => userName = value),
+              ),
+              TextFormField(
+                decoration: const InputDecoration(labelText: 'Password'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your password';
+                  }
+                  return null;
+                },
+                onChanged: (value) => setState(() => password = value),
+              ),
+              TextFormField(
                 decoration: const InputDecoration(labelText: 'Delivery Address'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -118,7 +142,7 @@ class _BuyerRegistrationPageState extends State<BuyerRegistrationPage> {
               ),
               DropdownButtonFormField<String>(
                 decoration: const InputDecoration(labelText: 'Preferred Payment Method'),
-                items: ['Credit Card', 'Cash on Delivery', 'UPI']
+                items: ['Credit Card', 'Cash', 'PayPal','Bank Transfer',]
                     .map((method) => DropdownMenuItem(
                           value: method,
                           child: Text(method),
