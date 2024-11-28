@@ -39,9 +39,11 @@ class _LoginPageState extends State<LoginPage> {
           final responseData = json.decode(response.body);
           final userId = responseData['userId'];
           final isVerified = responseData['is_active'];
+          final name=responseData['name'];
 
           SharedPreferences prefs = await SharedPreferences.getInstance();
           await prefs.setInt('userId', userId);
+          await prefs.setString('name', name);
 
           if (role == 'Farmer' && !isVerified) {
             // If the user is a farmer and not verified
