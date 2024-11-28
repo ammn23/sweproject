@@ -359,9 +359,8 @@ func login(w http.ResponseWriter, r *http.Request) {
 
 	// Success response
 	response := map[string]interface{}{
-		"userId":  userID,
-		"message": "Login successful",
-		"name":    usersName,
+		"userId": userID,
+		"name":   usersName,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
