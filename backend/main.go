@@ -355,6 +355,15 @@ func login(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Farmer not activated", http.StatusForbidden)
 			return
 		}
+
+		// Success response
+		response := map[string]interface{}{
+			"userId": userID,
+			"name":   usersName,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
 	}
 
 	var buyerID int
