@@ -357,6 +357,17 @@ func login(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var buyerID int
+	err = db.QueryRow(`
+			SELECT userid FROM public.buyer
+			WHERE userid = $1
+		`, userID).Scan(&buyerID)
+
+	if err == sql.ErrNoRows {
+		http.Error(w, "Buyer record not found", http.StatusNotFound)
+		return
+	}
+
 	// Success response
 	response := map[string]interface{}{
 		"userId": userID,
