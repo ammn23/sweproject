@@ -21,7 +21,7 @@ class _BuyerRegistrationPageState extends State<BuyerRegistrationPage> {
   String password = '';
 
   // REST API endpoint for buyer registration
-  final String apiUrl = 'https://your-api-url.com/register_buyer';
+  final String apiUrl = 'http://10.0.2.2:8080/register_buyer';
 
   Future<void> _registerBuyer() async {
     if (_formKey.currentState!.validate()) {
