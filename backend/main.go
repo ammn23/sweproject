@@ -313,12 +313,13 @@ func login(w http.ResponseWriter, r *http.Request) {
 
 	var userID int
 	var storedPassword string
+	var usersName string
 
 	// Query the database for user credentials
 	err = db.QueryRow(`
-		SELECT userid, password FROM public.users
+		SELECT userid, password, name FROM public.users
 		WHERE email = $1 OR username = $1
-	`, identifier).Scan(&userID, &storedPassword)
+	`, identifier).Scan(&userID, &storedPassword, &usersName)
 	if err == sql.ErrNoRows {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
@@ -360,6 +361,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"userId":  userID,
 		"message": "Login successful",
+		"name":    usersName,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
