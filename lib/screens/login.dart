@@ -38,18 +38,30 @@ class _LoginPageState extends State<LoginPage> {
         if (response.statusCode == 200) {
           final responseData = json.decode(response.body);
           final userId = responseData['userId'];
+          final isVerified = responseData['is_active'];
 
           SharedPreferences prefs = await SharedPreferences.getInstance();
           await prefs.setInt('userId', userId);
 
-          if(mounted){
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Login Successful!')),
-          );
-          Navigator.pushNamed(
-            context,
-            role == 'Farmer' ? '/farmer_dashboard' : '/buyer_dashboard',
-          );
+          if (role == 'Farmer' && !isVerified) {
+            // If the user is a farmer and not verified
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text(
+                        'User not verified. Please wait for verification.')),
+              );
+            }
+          } else {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Login Successful!')),
+              );
+              Navigator.pushNamed(
+                context,
+                role == 'Farmer' ? '/farmer_dashboard' : '/buyer_dashboard',
+              );
+            }
           }
         } else if (response.statusCode == 401) {
           setState(() {
@@ -80,7 +92,8 @@ class _LoginPageState extends State<LoginPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextFormField(
-                decoration: const InputDecoration(labelText: 'Email or Username'),
+                decoration:
+                    const InputDecoration(labelText: 'Email or Username'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your email or username';
