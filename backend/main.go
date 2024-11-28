@@ -7,7 +7,27 @@ import (
 	_ "github.com/lib/pq"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 )
+
+var db *sql.DB
+
+func initDB() (*sql.DB, error) {
+	connStr := "user=postgres dbname=farmersmarket password=2004Amina host=farmersmarket.cpywg2ws46ft.eu-north-1.rds.amazonaws.com port=5432 sslmode=require"
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		return nil, fmt.Errorf("error connecting to the database: %w", err)
+	}
+
+	// Optionally test the connection
+	if err = db.Ping(); err != nil {
+		return nil, fmt.Errorf("error verifying database connection: %w", err)
+	}
+
+	return db, nil
+}
 
 type Users struct {
 	ID          int    `json:"id"`
@@ -40,14 +60,6 @@ type Buyer struct {
 }
 
 func registerBuyer(w http.ResponseWriter, r *http.Request) {
-	connStr := "user=postgres dbname=farmersmarket password=2004Amina host=farmersmarket.cpywg2ws46ft.eu-north-1.rds.amazonaws.com port=5432 sslmode=require"
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		log.Printf("Database connection error: %v", err)
-		http.Error(w, fmt.Sprintf("Error connecting to the database: %v", err), http.StatusInternalServerError)
-		return
-	}
-	defer db.Close()
 
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
@@ -57,7 +69,7 @@ func registerBuyer(w http.ResponseWriter, r *http.Request) {
 
 	var registrationData map[string]interface{}
 	decoder := json.NewDecoder(r.Body)
-	err = decoder.Decode(&registrationData)
+	err := decoder.Decode(&registrationData)
 	if err != nil {
 		log.Printf("JSON decoding error: %v", err)
 		http.Error(w, fmt.Sprintf("Error decoding JSON: %v", err), http.StatusBadRequest)
@@ -147,14 +159,6 @@ func registerBuyer(w http.ResponseWriter, r *http.Request) {
 }
 
 func registerFarmer(w http.ResponseWriter, r *http.Request) {
-	connStr := "user=postgres dbname=farmersmarket password=2004Amina host=farmersmarket.cpywg2ws46ft.eu-north-1.rds.amazonaws.com port=5432 sslmode=require"
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		log.Printf("Database connection error: %v", err)
-		http.Error(w, fmt.Sprintf("Error connecting to the database: %v", err), http.StatusInternalServerError)
-		return
-	}
-	defer db.Close()
 
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
@@ -164,7 +168,7 @@ func registerFarmer(w http.ResponseWriter, r *http.Request) {
 
 	var registrationData map[string]interface{}
 	decoder := json.NewDecoder(r.Body)
-	err = decoder.Decode(&registrationData)
+	err := decoder.Decode(&registrationData)
 	if err != nil {
 		log.Printf("JSON decoding error: %v", err)
 		http.Error(w, fmt.Sprintf("Error decoding JSON: %v", err), http.StatusBadRequest)
@@ -272,9 +276,122 @@ func registerFarmer(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+func login(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		log.Println("Request made with invalid HTTP method")
+		return
+	}
+
+	var loginData map[string]interface{}
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&loginData)
+	if err != nil {
+		log.Printf("JSON decoding error: %v", err)
+		http.Error(w, fmt.Sprintf("Error decoding JSON: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	identifier, ok := loginData["identifier"].(string)
+	if !ok {
+		http.Error(w, "Missing or invalid 'identifier' field", http.StatusBadRequest)
+		return
+	}
+
+	password, ok := loginData["password"].(string)
+	if !ok {
+		http.Error(w, "Missing or invalid 'password' field", http.StatusBadRequest)
+		return
+	}
+
+	role, ok := loginData["role"].(string)
+	if !ok {
+		http.Error(w, "Missing or invalid 'role' field", http.StatusBadRequest)
+		return
+	}
+
+	var userID int
+	var storedPassword string
+	var usersName string
+
+	// Query the database for user credentials
+	err = db.QueryRow(`
+		SELECT userid, password, name FROM public.users
+		WHERE email = $1 OR username = $1
+	`, identifier).Scan(&userID, &storedPassword, &usersName)
+	if err == sql.ErrNoRows {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		log.Printf("Database query error: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Check password
+	if storedPassword != password {
+		http.Error(w, "Invalid password", http.StatusUnauthorized)
+		return
+	}
+
+	// Role-specific checks
+	if role == "Farmer" {
+		var isActive bool
+		err = db.QueryRow(`
+			SELECT is_active FROM public.farmer
+			WHERE userid = $1
+		`, userID).Scan(&isActive)
+		if err == sql.ErrNoRows {
+			http.Error(w, "Farmer record not found", http.StatusNotFound)
+			return
+		} else if err != nil {
+			log.Printf("Database query error: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		if !isActive {
+			http.Error(w, "Farmer not activated", http.StatusForbidden)
+			return
+		}
+	}
+
+	// Success response
+	response := map[string]interface{}{
+		"userId":  userID,
+		"message": "Login successful",
+		"name":    usersName,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
 func main() {
+	var err error
+	db, err = initDB()
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Error closing database: %v", err)
+		}
+	}()
+
+	// Handle shutdown gracefully
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+		<-sigChan
+		log.Println("Shutting down server...")
+		os.Exit(0)
+	}()
+
 	http.HandleFunc("/register_farmer", registerFarmer)
 	http.HandleFunc("/register_buyer", registerBuyer)
+	http.HandleFunc("/login", login)
 	fmt.Println("Server is running at http://localhost:8080")
 	log.Println("Server started on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
