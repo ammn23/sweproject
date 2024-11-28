@@ -38,33 +38,26 @@ class _LoginPageState extends State<LoginPage> {
         if (response.statusCode == 200) {
           final responseData = json.decode(response.body);
           final userId = responseData['userId'];
-          final isVerified = responseData['is_active'];
-          final name=responseData['name'];
+          final name = responseData['name'];
+          print(responseData);
 
           SharedPreferences prefs = await SharedPreferences.getInstance();
           await prefs.setInt('userId', userId);
           await prefs.setString('name', name);
 
-          if (role == 'Farmer' && !isVerified) {
-            // If the user is a farmer and not verified
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text(
-                        'User not verified. Please wait for verification.')),
-              );
-            }
-          } else {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Login Successful!')),
-              );
-              Navigator.pushNamed(
-                context,
-                role == 'Farmer' ? '/farmer_dashboard' : '/buyer_dashboard',
-              );
-            }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Login Successful!')),
+            );
+            Navigator.pushNamed(
+              context,
+              role == 'Farmer' ? '/farmer_dashboard' : '/buyer_dashboard',
+            );
           }
+        } else if (response.statusCode == 403) {
+          setState(() {
+            errorMessage = 'Your account is not verified yet';
+          });
         } else if (response.statusCode == 401) {
           setState(() {
             errorMessage = 'Incorrect email/username, password, or role.';
