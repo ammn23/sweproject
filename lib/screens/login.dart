@@ -18,7 +18,7 @@ class _LoginPageState extends State<LoginPage> {
   String errorMessage = '';
 
   // REST API endpoint for authentication
-  final String apiUrl = 'https://your-api-url.com/login';
+  final String apiUrl = 'http://10.0.2.2:8080/login';
 
   Future<void> _authenticateUser() async {
     if (_formKey.currentState!.validate()) {
