@@ -13,6 +13,7 @@ class FarmerDashboard extends StatefulWidget {
 
 class _FarmerDashboardState extends State<FarmerDashboard> {
   int? userId;
+  String? name;
   bool _isLoading = true;
   String errorMessage = '';
 
@@ -24,13 +25,14 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
 
   // Retrieve the saved username from SharedPreferences
   Future<void> _getEmail() async {
-    //SharedPreferences prefs = await SharedPreferences.getInstance();
-    //int? storedUserId = prefs.getInt('userId');
-    int? storedUserId=123;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    int? storedUserId = prefs.getInt('userId');
+    String? storedName=prefs.getString('name');
 
     if (storedUserId != null) {
       setState(() {
         userId = storedUserId;
+        name=storedName;
         _isLoading = false;
       });
     } else {
@@ -53,7 +55,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Welcome, $userId!', style: const TextStyle(fontSize: 20)),
+                      Text('Welcome, $name!', style: const TextStyle(fontSize: 20)),
                       const SizedBox(height: 20),
                       GestureDetector(
                         onTap: () {

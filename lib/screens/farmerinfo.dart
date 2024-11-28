@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class FarmerInfoPage extends StatefulWidget {
   final int userId; // Use user ID instead of email for identification
@@ -29,7 +28,7 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
       });
     }
   }
-/*
+
   // Function to update the farmer profile
   Future<void> _updateProfile() async {
     if (_formKey.currentState!.validate()) {
@@ -83,7 +82,7 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
       }
     }
   }
-*/
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -207,7 +206,7 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
                             },
                           ),
                           const SizedBox(height: 20),
-                        /*  ElevatedButton(
+                          ElevatedButton(
                             onPressed: _updateProfile,
                             child: const Text('Save Changes'),
                             style: ElevatedButton.styleFrom(
@@ -215,7 +214,7 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
                               minimumSize: const Size(double.infinity, 50),
                               textStyle: const TextStyle(fontSize: 16),
                             ),
-                          ),*/
+                          ),
                         ],
                       ),
                     ),
