@@ -3,8 +3,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class FarmInfoPage extends StatefulWidget {
-  final int userId; // Pass the user ID to fetch farm data
-  const FarmInfoPage({super.key, required this.userId});
+  final int farmId; // Pass the user ID to fetch farm data
+  const FarmInfoPage({super.key, required this.farmId});
 
   @override
   State<FarmInfoPage> createState() => _FarmInfoPageState();
@@ -17,7 +17,7 @@ class _FarmInfoPageState extends State<FarmInfoPage> {
   Future<void> _fetchFarmInfo() async {
     try {
       final response = await http.get(
-        Uri.parse('https://your-api-url.com/get-farm-info?user_id=${widget.userId}'),
+        Uri.parse('https://your-api-url.com/get-farm-info?user_id=${widget.farmId}'),
       );
 
       if (response.statusCode == 200) {

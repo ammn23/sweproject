@@ -4,18 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
-class FarmerInfoPage extends StatefulWidget {
+class BuyerInfoPage extends StatefulWidget {
   final int userId; // Use user ID instead of email for identification
-  const FarmerInfoPage({super.key, required this.userId});
+  const BuyerInfoPage({super.key, required this.userId});
 
   @override
-  State<FarmerInfoPage> createState() => _FarmerInfoPageState();
+  State<BuyerInfoPage> createState() => _FarmerInfoPageState();
 }
 
-class _FarmerInfoPageState extends State<FarmerInfoPage> {
+class _FarmerInfoPageState extends State<BuyerInfoPage> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
-  String? _name, _email, _phone, _farmName, _address, _profilePicUrl;
+  String? _name, _email, _phone, _address,_paymentMethod, _profilePicUrl;
   XFile? _profileImage; // Change to XFile
   final ImagePicker _picker = ImagePicker();
 
@@ -55,6 +55,7 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
       request.fields['name'] = _name ?? '';
       request.fields['email'] = _email ?? '';
       request.fields['phone'] = _phone ?? '';
+      request.fields['payment_method'] = _paymentMethod ?? '';
       request.fields['address'] = _address ?? '';
 
       try {
@@ -167,23 +168,6 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
                             onChanged: (value) {
                               setState(() {
                                 _phone = value;
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 15),
-                          TextFormField(
-                            initialValue: _farmName,
-                            decoration: InputDecoration(
-                              labelText: 'Farm Name',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey[100],
-                            ),
-                            onChanged: (value) {
-                              setState(() {
-                                _farmName = value;
                               });
                             },
                           ),
