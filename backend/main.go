@@ -81,6 +81,15 @@ type Product struct {
 	Price       float64 `json:"price"`
 }
 
+type EditProduct struct {
+	Name        string   `json:"name"`
+	Category    string   `json:"category"`
+	Price       float64  `json:"price"`
+	Quantity    int      `json:"quantity"`
+	Description string   `json:"description"`
+	Images      []string `json:"images"`
+}
+
 func registerBuyer(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodPost {
@@ -739,6 +748,42 @@ func deleteProduct(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "Product deleted successfully")
 }
 
+func updateProductInfoHandler(w http.ResponseWriter, r *http.Request) {
+	// Extract productId from the URL
+	productIdStr := r.URL.Path[len("/update_product_info/"):]
+	productId, err := strconv.Atoi(productIdStr)
+	if err != nil {
+		http.Error(w, "Invalid product ID", http.StatusBadRequest)
+		return
+	}
+
+	// Decode the incoming JSON body
+	var product EditProduct
+	err = json.NewDecoder(r.Body).Decode(&product)
+	if err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	// Update the product in the database
+	query := `
+		UPDATE product 
+		SET name = $1, category = $2, price = $3, quantity = $4, description = $5 
+		WHERE productid = $6
+	`
+	_, err = db.Exec(query, product.Name, product.Category, product.Price, product.Quantity, product.Description, productId)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to update product: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Respond with success message
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	response := map[string]string{"message": "Product updated successfully"}
+	json.NewEncoder(w).Encode(response)
+}
+
 func main() {
 	var err error
 	db, err = initDB()
@@ -768,6 +813,8 @@ func main() {
 	http.HandleFunc("/update_farmer_info/", updateFarmerInfo)
 	http.HandleFunc("/farmer_products/", farmerProducts)
 	http.HandleFunc("/delete_product/", deleteProduct)
+
+	http.HandleFunc("/update_product_info/", updateProductInfoHandler)
 
 	fmt.Println("Server is running at http://localhost:8080")
 	log.Println("Server started on port 8080")
