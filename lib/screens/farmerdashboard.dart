@@ -57,7 +57,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
   // Fetch the farm data (farmName and farmId) using a REST API
   Future<void> _fetchFarmData() async {
     const String apiUrl =
-        'http://10.0.2.2:8080/farmerdashboard'; // Replace with your API endpoint
+        'http://10.0.2.2:8080/farmer_dashboard'; // Replace with your API endpoint
 
     try {
       final response = await http.get(Uri.parse('$apiUrl/$userId'));

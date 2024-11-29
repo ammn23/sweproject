@@ -4,7 +4,7 @@ import 'screens/login.dart';  // Import LoginPage
 import 'screens/buyerregistration.dart';  // Import BuyerRegistrationPage
 import 'screens/farmerregistration.dart';  // Import FarmerRegistrationPage
 import 'screens/farmerdashboard.dart'; 
-import 'screens/farmerpoductlisting.dart';
+import 'screens/farmereditpl.dart';
 import 'screens/buyerproductlisting.dart';
 
 void main() {
@@ -26,7 +26,6 @@ class FarmersMarketApp extends StatelessWidget {
         '/farmerregistration': (context) => const FarmerRegistrationPage(),
         '/buyerregistration': (context) => const BuyerRegistrationPage(),
         '/farmer_dashboard': (context) => const FarmerDashboard(),
-        '/farmerproductlisting':(context) => const ProductListingPage (),
         '/buyerproductlisting':(context) => const BuyerInterface (),
         '/buyer_dashboard':(context) => const BuyerDashboard (),
       },

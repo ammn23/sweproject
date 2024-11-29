@@ -15,10 +15,9 @@ class _FarmInfoPageState extends State<FarmInfoPage> {
   Map<String, dynamic>? _farmData;
 
   Future<void> _fetchFarmInfo() async {
+    const String apiUrl = 'http://10.0.2.2:8080/get_farm_info';
     try {
-      final response = await http.get(
-        Uri.parse('https://your-api-url.com/get-farm-info?user_id=${widget.farmId}'),
-      );
+      final response = await http.get(Uri.parse('$apiUrl/${widget.farmId}'));
 
       if (response.statusCode == 200) {
         setState(() {
@@ -32,9 +31,11 @@ class _FarmInfoPageState extends State<FarmInfoPage> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error fetching farm info: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error fetching farm info: $e')),
+        );
+      }
     }
   }
 
@@ -58,7 +59,7 @@ class _FarmInfoPageState extends State<FarmInfoPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Farm Name: ${_farmData!['farm_name']}',//['name of column]
+                        'Farm Name: ${_farmData!['farm_name']}', //['name of column]
                         style: const TextStyle(fontSize: 18),
                       ),
                       const SizedBox(height: 10),
@@ -74,7 +75,8 @@ class _FarmInfoPageState extends State<FarmInfoPage> {
                       const SizedBox(height: 10),
                       const Text(
                         'Resources:',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       Expanded(
                         child: ListView.builder(
@@ -82,8 +84,10 @@ class _FarmInfoPageState extends State<FarmInfoPage> {
                           itemBuilder: (context, index) {
                             final resource = _farmData!['resources'][index];
                             return ListTile(
-                              title: Text('${resource['type']}: ${resource['name']}'),
-                              subtitle: Text('Quantity: ${resource['quantity']}'),
+                              title: Text(
+                                  '${resource['type']}: ${resource['name']}'),
+                              subtitle:
+                                  Text('Quantity: ${resource['quantity']}'),
                             );
                           },
                         ),

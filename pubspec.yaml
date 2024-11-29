@@ -32,7 +32,10 @@ dependencies:
     sdk: flutter
   http: ^1.2.2
   shared_preferences: ^2.1.0
-  
+  googleapis: ^12.0.0
+  googleapis_auth: 1.6.0
+  path_provider: ^2.0.14
+  path: ^1.8.0
 
 
   # The following adds the Cupertino Icons font to your application.
@@ -56,6 +59,8 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  assets:
+    - assets/client_secret.json
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

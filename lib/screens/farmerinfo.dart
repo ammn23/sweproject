@@ -18,9 +18,8 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
   // Farmer details
   String? name;
   String? email;
-  String? phoneNumber;
+  int? phoneNumber;
   String? profilePictureUrl;
-
 
   bool _isLoading = true;
   String _errorMessage = '';
@@ -37,7 +36,7 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
 
   // Fetch farmer and farm details from the backend
   Future<void> _fetchDetails() async {
-    const String apiUrl = 'http://10.0.2.2:8080/get_farmerinfo';
+    const String apiUrl = 'http://10.0.2.2:8080/get_farmer_info';
 
     try {
       final response = await http.get(Uri.parse('$apiUrl/${widget.userId}'));
@@ -68,7 +67,7 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
   Future<void> _saveDetails() async {
     if (!_formKey.currentState!.validate()) return;
 
-    const String apiUrl = 'http://10.0.2.2:8080/update_farmerinfo';
+    const String apiUrl = 'http://10.0.2.2:8080/update_farmer_info';
     final updatedData = {
       'name': name,
       'email': email,
@@ -191,12 +190,12 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
 
                         // Phone number
                         TextFormField(
-                          initialValue: phoneNumber,
+                          initialValue: phoneNumber?.toString(),
                           decoration: const InputDecoration(
                             labelText: 'Phone Number',
                             border: OutlineInputBorder(),
                           ),
-                          onChanged: (value) => phoneNumber = value,
+                          onChanged: (value) => phoneNumber = int.parse(value),
                           validator: (value) => value == null || value.isEmpty
                               ? 'Required'
                               : null,
