@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -441,17 +442,33 @@ func authenticateUser(req LoginRequest) (*LoginResponse, error) {
 }
 
 func handleFarmerDashboard(w http.ResponseWriter, r *http.Request) {
-	userID := r.URL.Query().Get("userid")
-	if userID == "" {
-		http.Error(w, "userid parameter is required", http.StatusBadRequest)
+	if r.Method != http.MethodGet {
+		http.Error(w, "Invalid request method. Use GET.", http.StatusMethodNotAllowed)
+		return
+	}
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 2 || pathParts[len(pathParts)-1] == "" {
+		http.Error(w, "userid is required in the URL path", http.StatusBadRequest)
 		return
 	}
 
+	// Convert userid from string to integer
+	userID, err := strconv.Atoi(pathParts[len(pathParts)-1])
+	if err != nil {
+		log.Printf("Invalid userid: %v", err)
+		http.Error(w, "userid must be a valid integer", http.StatusBadRequest)
+		return
+	}
+
+	// Log the received userID
+	log.Printf("Received userid: %s", userID)
+
 	// Retrieve farmerid from farmer table
-	var farmerID string
-	err := db.QueryRow("SELECT farmerid FROM farmer WHERE userid = $1", userID).Scan(&farmerID)
+	var farmerID int
+	err = db.QueryRow("SELECT farmerid FROM farmer WHERE userid = $1", userID).Scan(&farmerID)
 	if err != nil {
 		if err == sql.ErrNoRows {
+			log.Printf("No farmer found for userid: %s", userID)
 			http.Error(w, "No farmer found for the given userid", http.StatusNotFound)
 		} else {
 			log.Printf("Error querying farmer table: %v", err)
@@ -459,6 +476,8 @@ func handleFarmerDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	log.Printf("Retrieved farmerid: %s", farmerID)
 
 	// Retrieve farms associated with the farmerid
 	rows, err := db.Query("SELECT farmid, name FROM farm WHERE farmerid = $1", farmerID)
@@ -469,17 +488,31 @@ func handleFarmerDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	// Prepare response
-	var farms []Farm
+	// Build the response
+	var farms []map[string]interface{}
 	for rows.Next() {
-		var farm Farm
-		if err := rows.Scan(&farm.FarmID, &farm.Name); err != nil {
+		var farmID int
+		var name string
+		if err := rows.Scan(&farmID, &name); err != nil {
 			log.Printf("Error scanning farm row: %v", err)
 			http.Error(w, "Error processing database results", http.StatusInternalServerError)
 			return
 		}
-		farms = append(farms, farm)
+		// Add farm details to the response slice
+		farms = append(farms, map[string]interface{}{
+			"farmid": farmID,
+			"name":   name,
+		})
 	}
+
+	if len(farms) == 0 {
+		log.Printf("No farms found for farmerid: %s", farmerID)
+		http.Error(w, "No farms found for the given farmer", http.StatusNotFound)
+		return
+	}
+
+	// Log the farms found
+	log.Printf("Farms found: %+v", farms)
 
 	// Return JSON response
 	w.Header().Set("Content-Type", "application/json")
@@ -510,7 +543,7 @@ func main() {
 		os.Exit(0)
 	}()
 
-	http.HandleFunc("/farmerdashboard", handleFarmerDashboard)
+	http.HandleFunc("/farmerdashboard/", handleFarmerDashboard)
 	http.HandleFunc("/register_farmer", registerFarmer)
 	http.HandleFunc("/register_buyer", registerBuyer)
 	http.HandleFunc("/login", login)
