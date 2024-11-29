@@ -39,6 +39,7 @@ class _LoginPageState extends State<LoginPage> {
           final responseData = json.decode(response.body);
           final userId = responseData['userId'];
           final name = responseData['name'];
+
           print(responseData);
 
           SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -58,9 +59,21 @@ class _LoginPageState extends State<LoginPage> {
           setState(() {
             errorMessage = 'Your account is not verified yet';
           });
-        } else if (response.statusCode == 401) {
+        } else if (response.statusCode == 400) {
           setState(() {
             errorMessage = 'Incorrect email/username, password, or role.';
+          });
+        } else if (response.statusCode == 404) {
+          setState(() {
+            errorMessage = 'User not found';
+          });
+        }else if (response.statusCode == 500) {
+          setState(() {
+            errorMessage = 'Internal server error';
+          });
+        }else if (response.statusCode == 401) {
+          setState(() {
+            errorMessage = 'Invalid password';
           });
         } else {
           setState(() {
@@ -68,6 +81,7 @@ class _LoginPageState extends State<LoginPage> {
           });
         }
       } catch (e) {
+        print(e);
         setState(() {
           errorMessage = 'An error occurred. Please check your connection.';
         });
