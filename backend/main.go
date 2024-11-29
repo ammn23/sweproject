@@ -3,12 +3,14 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	_ "github.com/lib/pq"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 )
 
@@ -57,6 +59,17 @@ type Buyer struct {
 	UserID        int    `json:"user_id"`
 	DeliveryAddr  string `json:"delivery_address"`
 	PaymentMethod string `json:"payment_method"`
+}
+
+type LoginRequest struct {
+	Identifier string `json:"identifier"`
+	Password   string `json:"password"`
+	Role       string `json:"role"`
+}
+
+type LoginResponse struct {
+	UserID int    `json:"userId"`
+	Name   string `json:"name"`
 }
 
 func registerBuyer(w http.ResponseWriter, r *http.Request) {
@@ -277,115 +290,153 @@ func registerFarmer(w http.ResponseWriter, r *http.Request) {
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
-
+	// Validate HTTP method
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-		log.Println("Request made with invalid HTTP method")
 		return
 	}
 
-	var loginData map[string]interface{}
-	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&loginData)
+	// Parse and validate login request
+	var loginReq LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&loginReq); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate input fields
+	if err := validateLoginRequest(loginReq); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Authenticate user
+	userDetails, err := authenticateUser(loginReq)
 	if err != nil {
-		log.Printf("JSON decoding error: %v", err)
-		http.Error(w, fmt.Sprintf("Error decoding JSON: %v", err), http.StatusBadRequest)
+		// Error handling with appropriate status codes
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			http.Error(w, "User not found", http.StatusNotFound)
+		case errors.Is(err, ErrInvalidCredentials):
+			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		case errors.Is(err, ErrUserNotActivated):
+			http.Error(w, "User not activated", http.StatusForbidden)
+		default:
+			log.Printf("Login error: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
 		return
 	}
 
-	identifier, ok := loginData["identifier"].(string)
-	if !ok {
-		http.Error(w, "Missing or invalid 'identifier' field", http.StatusBadRequest)
-		return
+	// Respond with user details
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(userDetails)
+}
+
+// Custom error types
+var (
+	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrUserNotActivated   = errors.New("user not activated")
+)
+
+func validateLoginRequest(req LoginRequest) error {
+	// Trim and validate input fields
+	req.Identifier = strings.TrimSpace(req.Identifier)
+	req.Role = strings.TrimSpace(req.Role)
+
+	if req.Identifier == "" {
+		return errors.New("identifier is required")
+	}
+	if req.Password == "" {
+		return errors.New("password is required")
+	}
+	if req.Role == "" {
+		return errors.New("role is required")
 	}
 
-	password, ok := loginData["password"].(string)
-	if !ok {
-		http.Error(w, "Missing or invalid 'password' field", http.StatusBadRequest)
-		return
-	}
+	return nil
+}
 
-	role, ok := loginData["role"].(string)
-	if !ok {
-		http.Error(w, "Missing or invalid 'role' field", http.StatusBadRequest)
-		return
-	}
-
+func authenticateUser(req LoginRequest) (*LoginResponse, error) {
 	var userID int
 	var storedPassword string
 	var usersName string
+	var isActive bool
+	var userType string
 
-	// Query the database for user credentials
-	err = db.QueryRow(`
-		SELECT userid, password, name FROM public.users
-		WHERE email = $1 OR username = $1
-	`, identifier).Scan(&userID, &storedPassword, &usersName)
-	if err == sql.ErrNoRows {
-		http.Error(w, "User not found", http.StatusNotFound)
-		return
-	} else if err != nil {
-		log.Printf("Database query error: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+	// Unified query to fetch user details
+	query := `
+    SELECT 
+        u.userid, 
+        u.password, 
+        u.name, 
+        CASE 
+            WHEN f.userid IS NOT NULL THEN f.is_active 
+            ELSE true 
+        END as is_active,
+        CASE 
+            WHEN f.userid IS NOT NULL THEN 'Farmer'
+            WHEN b.userid IS NOT NULL THEN 'Buyer'
+            ELSE NULL 
+        END as user_type
+    FROM public.users u
+    LEFT JOIN public.farmer f ON u.userid = f.userid
+    LEFT JOIN public.buyer b ON u.userid = b.userid
+    WHERE u.email = $1 OR u.username = $1
+    `
+
+	err := db.QueryRow(query, req.Identifier).Scan(
+		&userID, &storedPassword, &usersName, &isActive, &userType,
+	)
+
+	// Extensive logging for debugging
+	log.Printf("Query Params - Identifier: %s, Role: %s", req.Identifier, req.Role)
+	log.Printf("Database Fetch - Error: %v", err)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Printf("No user found with identifier: %s", req.Identifier)
+		}
+		return nil, err
 	}
 
-	// Check password
-	if storedPassword != password {
-		http.Error(w, "Invalid password", http.StatusUnauthorized)
-		return
+	// Log additional details
+	log.Printf("Found User - ID: %d, Name: %s, Type: %s, Active: %v",
+		userID, usersName, userType, isActive)
+
+	// Log password details for debugging
+	log.Printf("Stored Password: %s", storedPassword)
+	log.Printf("Provided Password: %s", req.Password)
+
+	// Verify password
+	passwordMatch := storedPassword == req.Password
+	log.Printf("Password Match: %v", passwordMatch)
+
+	// Bcrypt comparison (if passwords are hashed)
+	// bcryptErr := bcrypt.CompareHashAndPassword([]byte(storedPassword), []byte(req.Password))
+	// log.Printf("Bcrypt Comparison Error: %v", bcryptErr)
+
+	// Password check
+	if !passwordMatch {
+		log.Printf("Password mismatch for user: %s", req.Identifier)
+		return nil, ErrInvalidCredentials
 	}
 
 	// Role-specific checks
-	if role == "Farmer" {
-		var isActive bool
-		err = db.QueryRow(`
-			SELECT is_active FROM public.farmer
-			WHERE userid = $1
-		`, userID).Scan(&isActive)
-		if err == sql.ErrNoRows {
-			http.Error(w, "Farmer record not found", http.StatusNotFound)
-			return
-		} else if err != nil {
-			log.Printf("Database query error: %v", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
-
-		if !isActive {
-			http.Error(w, "Farmer not activated", http.StatusForbidden)
-			return
-		}
-
-		// Success response
-		response := map[string]interface{}{
-			"userId": userID,
-			"name":   usersName,
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
-		return
+	if req.Role != userType {
+		log.Printf("Role Mismatch - Expected: %s, Found: %s", req.Role, userType)
+		return nil, ErrInvalidCredentials
 	}
 
-	var buyerID int
-	err = db.QueryRow(`
-			SELECT userid FROM public.buyer
-			WHERE userid = $1
-		`, userID).Scan(&buyerID)
-
-	if err == sql.ErrNoRows {
-		http.Error(w, "Buyer record not found", http.StatusNotFound)
-		return
+	// Check user activation status
+	if !isActive {
+		log.Printf("User not active: %s", req.Identifier)
+		return nil, ErrUserNotActivated
 	}
 
-	// Success response
-	response := map[string]interface{}{
-		"userId": userID,
-		"name":   usersName,
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	return &LoginResponse{
+		UserID: userID,
+		Name:   usersName,
+	}, nil
 }
 
 func main() {
