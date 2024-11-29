@@ -549,14 +549,14 @@ func getFarmerInfo(w http.ResponseWriter, r *http.Request) {
 	var name, email, profilePicture string
 	var phoneNumber int
 
-	err = db.QueryRow("SELECT name, email, phone_number, profile_picture FROM users WHERE userid = $1", userID).
+	err = db.QueryRow("SELECT name, email, phone_number, profile_pic FROM users WHERE userid = $1", userID).
 		Scan(&name, &email, &phoneNumber, &profilePicture)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Printf("No farmer found for userid: %d", userID)
 			http.Error(w, "No farmer found for the given userid", http.StatusNotFound)
 		} else {
-			log.Printf("Error querying farmer table: %v", err)
+			log.Printf("Error querying users table: %v", err)
 			http.Error(w, "Error querying database", http.StatusInternalServerError)
 		}
 		return
@@ -581,7 +581,7 @@ func getFarmerInfo(w http.ResponseWriter, r *http.Request) {
 type FarmerUpdateRequest struct {
 	Name           string `json:"name"`
 	Email          string `json:"email"`
-	PhoneNumber    string `json:"phoneNumber"`
+	PhoneNumber    int    `json:"phoneNumber"`
 	ProfilePicture string `json:"profilePicture"`
 }
 
@@ -617,13 +617,13 @@ func updateFarmerInfo(w http.ResponseWriter, r *http.Request) {
 	// Update farmer table
 	_, err = db.Exec(`
 		UPDATE users
-		SET name = $1, email = $2, phone_number = $3, profile_picture = $4
+		SET name = $1, email = $2, phone_number = $3, profile_pic = $4
 		WHERE userid = $5`,
 		req.Name, req.Email, req.PhoneNumber, req.ProfilePicture, userID,
 	)
 	if err != nil {
-		log.Printf("Error updating farmer table: %v", err)
-		http.Error(w, "Error updating farmer information", http.StatusInternalServerError)
+		log.Printf("Error updating users table: %v", err)
+		http.Error(w, "Error updating users information", http.StatusInternalServerError)
 		return
 	}
 
