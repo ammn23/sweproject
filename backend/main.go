@@ -672,7 +672,7 @@ func farmerProducts(w http.ResponseWriter, r *http.Request) {
 
 	// Query to fetch products for the given farmer
 	query := `
-		SELECT p.product_id, p.product_name, f.name AS farm_name, p.price
+		SELECT p.productid, p.name, f.name AS farm_name, p.price
 		FROM product p
 		INNER JOIN farm f ON p.farmid = f.farmid
 		WHERE f.farmerid = (SELECT farmerid FROM farmer WHERE userid = $1)`
@@ -726,7 +726,7 @@ func deleteProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete the product from the database
-	query := `DELETE FROM product WHERE product_id = $1`
+	query := `DELETE FROM product WHERE productid = $1`
 	_, err = db.Exec(query, productID)
 	if err != nil {
 		log.Printf("Error deleting product: %v", err)
