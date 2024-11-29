@@ -441,7 +441,7 @@ func authenticateUser(req LoginRequest) (*LoginResponse, error) {
 	}, nil
 }
 
-func handleFarmerDashboard(w http.ResponseWriter, r *http.Request) {
+func farmerDashboard(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Invalid request method. Use GET.", http.StatusMethodNotAllowed)
 		return
@@ -522,6 +522,126 @@ func handleFarmerDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func getFarmerInfo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Invalid request method. Use GET.", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract userid from the URL path
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 2 || pathParts[len(pathParts)-1] == "" {
+		http.Error(w, "userid is required in the URL path", http.StatusBadRequest)
+		return
+	}
+
+	// Convert userid from string to integer
+	userID, err := strconv.Atoi(pathParts[len(pathParts)-1])
+	if err != nil {
+		log.Printf("Invalid userid: %v", err)
+		http.Error(w, "userid must be a valid integer", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("Received userid: %d", userID)
+
+	// Retrieve farmer details
+	var name, email, profilePicture string
+	var phoneNumber int
+
+	err = db.QueryRow("SELECT name, email, phone_number, profile_picture FROM users WHERE userid = $1", userID).
+		Scan(&name, &email, &phoneNumber, &profilePicture)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Printf("No farmer found for userid: %d", userID)
+			http.Error(w, "No farmer found for the given userid", http.StatusNotFound)
+		} else {
+			log.Printf("Error querying farmer table: %v", err)
+			http.Error(w, "Error querying database", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Build the response
+	response := map[string]interface{}{
+		"name":           name,
+		"email":          email,
+		"phoneNumber":    phoneNumber,
+		"profilePicture": profilePicture,
+	}
+
+	// Return JSON response
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+		http.Error(w, "Error generating response", http.StatusInternalServerError)
+	}
+}
+
+type FarmerUpdateRequest struct {
+	Name           string `json:"name"`
+	Email          string `json:"email"`
+	PhoneNumber    string `json:"phoneNumber"`
+	ProfilePicture string `json:"profilePicture"`
+}
+
+func updateFarmerInfo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Invalid request method. Use PUT.", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract userid from the URL path
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 2 || pathParts[len(pathParts)-1] == "" {
+		http.Error(w, "userid is required in the URL path", http.StatusBadRequest)
+		return
+	}
+
+	// Convert userid from string to integer
+	userID, err := strconv.Atoi(pathParts[len(pathParts)-1])
+	if err != nil {
+		log.Printf("Invalid userid: %v", err)
+		http.Error(w, "userid must be a valid integer", http.StatusBadRequest)
+		return
+	}
+
+	// Parse JSON body
+	var req FarmerUpdateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("Error decoding request body: %v", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Update farmer table
+	_, err = db.Exec(`
+		UPDATE users
+		SET name = $1, email = $2, phone_number = $3, profile_picture = $4
+		WHERE userid = $5`,
+		req.Name, req.Email, req.PhoneNumber, req.ProfilePicture, userID,
+	)
+	if err != nil {
+		log.Printf("Error updating farmer table: %v", err)
+		http.Error(w, "Error updating farmer information", http.StatusInternalServerError)
+		return
+	}
+
+	// Respond with the updated data
+	response := map[string]interface{}{
+		"name":           req.Name,
+		"email":          req.Email,
+		"phoneNumber":    req.PhoneNumber,
+		"profilePicture": req.ProfilePicture,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+		http.Error(w, "Error generating response", http.StatusInternalServerError)
+	}
+}
+
 func main() {
 	var err error
 	db, err = initDB()
@@ -543,10 +663,12 @@ func main() {
 		os.Exit(0)
 	}()
 
-	http.HandleFunc("/farmerdashboard/", handleFarmerDashboard)
 	http.HandleFunc("/register_farmer", registerFarmer)
 	http.HandleFunc("/register_buyer", registerBuyer)
 	http.HandleFunc("/login", login)
+	http.HandleFunc("/farmer_dashboard/", farmerDashboard)
+	http.HandleFunc("/get_farmer_info/", getFarmerInfo)
+	http.HandleFunc("/update_farmer_info/", updateFarmerInfo)
 	fmt.Println("Server is running at http://localhost:8080")
 	log.Println("Server started on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
