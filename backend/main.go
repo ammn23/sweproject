@@ -74,6 +74,13 @@ type LoginResponse struct {
 	Name   string `json:"name"`
 }
 
+type Product struct {
+	ProductID   int     `json:"product_id"`
+	ProductName string  `json:"product_name"`
+	FarmName    string  `json:"farm_name"`
+	Price       float64 `json:"price"`
+}
+
 func registerBuyer(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodPost {
@@ -642,6 +649,96 @@ func updateFarmerInfo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func farmerProducts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Invalid request method. Use GET.", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract userid from the URL path
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 2 || pathParts[len(pathParts)-1] == "" {
+		http.Error(w, "userid is required in the URL path", http.StatusBadRequest)
+		return
+	}
+
+	// Convert userid from string to integer
+	userID, err := strconv.Atoi(pathParts[len(pathParts)-1])
+	if err != nil {
+		log.Printf("Invalid userid: %v", err)
+		http.Error(w, "userid must be a valid integer", http.StatusBadRequest)
+		return
+	}
+
+	// Query to fetch products for the given farmer
+	query := `
+		SELECT p.product_id, p.product_name, f.name AS farm_name, p.price
+		FROM product p
+		INNER JOIN farm f ON p.farmid = f.farmid
+		WHERE f.farmerid = (SELECT farmerid FROM farmer WHERE userid = $1)`
+	rows, err := db.Query(query, userID)
+	if err != nil {
+		log.Printf("Error querying products: %v", err)
+		http.Error(w, "Error fetching products", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	// Collect products into a list
+	products := []Product{}
+	for rows.Next() {
+		var product Product
+		if err := rows.Scan(&product.ProductID, &product.ProductName, &product.FarmName, &product.Price); err != nil {
+			log.Printf("Error scanning row: %v", err)
+			http.Error(w, "Error processing products", http.StatusInternalServerError)
+			return
+		}
+		products = append(products, product)
+	}
+
+	// Encode the response as JSON
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(products); err != nil {
+		log.Printf("Error encoding response: %v", err)
+		http.Error(w, "Error generating response", http.StatusInternalServerError)
+	}
+}
+
+func deleteProduct(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Invalid request method. Use DELETE.", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract productid from the URL path
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 2 || pathParts[len(pathParts)-1] == "" {
+		http.Error(w, "productid is required in the URL path", http.StatusBadRequest)
+		return
+	}
+
+	// Convert productid from string to integer
+	productID, err := strconv.Atoi(pathParts[len(pathParts)-1])
+	if err != nil {
+		log.Printf("Invalid productid: %v", err)
+		http.Error(w, "productid must be a valid integer", http.StatusBadRequest)
+		return
+	}
+
+	// Delete the product from the database
+	query := `DELETE FROM product WHERE product_id = $1`
+	_, err = db.Exec(query, productID)
+	if err != nil {
+		log.Printf("Error deleting product: %v", err)
+		http.Error(w, "Error deleting product", http.StatusInternalServerError)
+		return
+	}
+
+	// Respond with success
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, "Product deleted successfully")
+}
+
 func main() {
 	var err error
 	db, err = initDB()
@@ -669,6 +766,9 @@ func main() {
 	http.HandleFunc("/farmer_dashboard/", farmerDashboard)
 	http.HandleFunc("/get_farmer_info/", getFarmerInfo)
 	http.HandleFunc("/update_farmer_info/", updateFarmerInfo)
+	http.HandleFunc("/farmer_products/", farmerProducts)
+	http.HandleFunc("/delete_product/", deleteProduct)
+
 	fmt.Println("Server is running at http://localhost:8080")
 	log.Println("Server started on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
