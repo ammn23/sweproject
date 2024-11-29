@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert'; // For JSON decoding
 import 'package:http/http.dart' as http; // For making REST API calls
-import 'farminfo.dart';  
-import 'farmerinfo.dart'; 
+import 'farminfo.dart';
+import 'farmerinfo.dart';
 
 class FarmerDashboard extends StatefulWidget {
   const FarmerDashboard({super.key});
@@ -15,8 +15,7 @@ class FarmerDashboard extends StatefulWidget {
 class _FarmerDashboardState extends State<FarmerDashboard> {
   int? userId;
   String? name;
-  String? farmName;
-  int? farmId;
+  List<dynamic> farms = []; // List to hold multiple farms
   bool _isLoading = true;
   String errorMessage = '';
 
@@ -57,18 +56,25 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
 
   // Fetch the farm data (farmName and farmId) using a REST API
   Future<void> _fetchFarmData() async {
-    const String apiUrl = 'http://10.0.2.2:8080/farmerdashboard'; // Replace with your API endpoint
+    const String apiUrl =
+        'http://10.0.2.2:8080/farmerdashboard'; // Replace with your API endpoint
 
     try {
       final response = await http.get(Uri.parse('$apiUrl/$userId'));
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          farmName = data['farmName'] ?? 'Unknown Farm';
-          farmId = data['farmId'];
-        });
+        final List<dynamic> data =
+            jsonDecode(response.body); // Decode as a List
+
+        if (data.isNotEmpty) {
+          setState(() {
+            farms = data; // Store the list of farms
+          });
+        } else {
+          setState(() {
+            errorMessage = 'No farm data found!';
+          });
+        }
       } else {
-        print(response.statusCode);
         setState(() {
           errorMessage = 'Failed to load farm data!';
         });
@@ -92,20 +98,24 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Welcome, $name!', style: const TextStyle(fontSize: 20)),
+                      Text('Welcome, $name!',
+                          style: const TextStyle(fontSize: 20)),
                       const SizedBox(height: 20),
 
                       // Heading for Farmer Info
                       const Text(
                         'My Data',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 5),
                       GestureDetector(
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => FarmerInfoPage(userId: userId!)),
+                            MaterialPageRoute(
+                                builder: (context) =>
+                                    FarmerInfoPage(userId: userId!)),
                           );
                         },
                         child: Container(
@@ -125,36 +135,52 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
 
                       // Heading for Farm Info
                       const Text(
-                        'My Farm',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        'My Farms',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 5),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => FarmInfoPage(farmId: farmId!)),
-                          );
-                        },
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16.0),
-                          margin: const EdgeInsets.only(bottom: 20.0),
-                          decoration: BoxDecoration(
-                            color: Colors.blue,
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                          child: Text(
-                            farmName != null && farmId != null
-                                ? 'Farm Info: $farmName (ID: $farmId)'
-                                : 'Farm Info',
-                            style: const TextStyle(color: Colors.white, fontSize: 18),
-                          ),
+
+                      // Display list of farms dynamically
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: farms.length, // Number of farms
+                          itemBuilder: (context, index) {
+                            var farmData =
+                                farms[index]; // Get farm data at index
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => FarmInfoPage(
+                                        farmId: farmData['farmid']),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(16.0),
+                                margin: const EdgeInsets.only(bottom: 20.0),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue,
+                                  borderRadius: BorderRadius.circular(8.0),
+                                ),
+                                child: Text(
+                                  'Farm Info: ${farmData['name']}',
+                                  style: const TextStyle(
+                                      color: Colors.white, fontSize: 18),
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],
                   )
-                : Center(child: Text(errorMessage, style: const TextStyle(color: Colors.red))),
+                : Center(
+                    child: Text(errorMessage,
+                        style: const TextStyle(color: Colors.red))),
       ),
     );
   }

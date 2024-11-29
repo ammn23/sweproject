@@ -21,9 +21,6 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
   String? phoneNumber;
   String? profilePictureUrl;
 
-  // Farm details
-  String? farmName;
-  String? address;
 
   bool _isLoading = true;
   String _errorMessage = '';
@@ -40,7 +37,7 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
 
   // Fetch farmer and farm details from the backend
   Future<void> _fetchDetails() async {
-    const String apiUrl = 'http://10.0.2.2:8080/farmerinfo';
+    const String apiUrl = 'http://10.0.2.2:8080/get_farmerinfo';
 
     try {
       final response = await http.get(Uri.parse('$apiUrl/${widget.userId}'));
@@ -51,8 +48,6 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
           email = data['email'];
           phoneNumber = data['phoneNumber'];
           profilePictureUrl = data['profilePicture'];
-          farmName = data['farmName'];
-          address = data['address'];
           _isLoading = false;
         });
       } else {
@@ -73,7 +68,7 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
   Future<void> _saveDetails() async {
     if (!_formKey.currentState!.validate()) return;
 
-    const String apiUrl = 'http://10.0.2.2:8080/updatefarmerinfo';
+    const String apiUrl = 'http://10.0.2.2:8080/update_farmerinfo';
     final updatedData = {
       'name': name,
       'email': email,
@@ -81,8 +76,6 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
       'profilePicture': _selectedImage != null
           ? base64Encode(await _selectedImage!.readAsBytes())
           : profilePictureUrl,
-      'farmName': farmName,
-      'address': address,
     };
 
     try {
@@ -182,9 +175,17 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
                             border: OutlineInputBorder(),
                           ),
                           onChanged: (value) => email = value,
-                          validator: (value) => value == null || value.isEmpty
-                              ? 'Required'
-                              : null,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your email';
+                            }
+                            if (!RegExp(
+                                    r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$")
+                                .hasMatch(value)) {
+                              return 'Please enter a valid email';
+                            }
+                            return null;
+                          },
                         ),
                         const SizedBox(height: 20),
 
@@ -196,34 +197,6 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
                             border: OutlineInputBorder(),
                           ),
                           onChanged: (value) => phoneNumber = value,
-                          validator: (value) => value == null || value.isEmpty
-                              ? 'Required'
-                              : null,
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Farm name
-                        TextFormField(
-                          initialValue: farmName,
-                          decoration: const InputDecoration(
-                            labelText: 'Farm Name',
-                            border: OutlineInputBorder(),
-                          ),
-                          onChanged: (value) => farmName = value,
-                          validator: (value) => value == null || value.isEmpty
-                              ? 'Required'
-                              : null,
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Farm address
-                        TextFormField(
-                          initialValue: address,
-                          decoration: const InputDecoration(
-                            labelText: 'Farm Address',
-                            border: OutlineInputBorder(),
-                          ),
-                          onChanged: (value) => address = value,
                           validator: (value) => value == null || value.isEmpty
                               ? 'Required'
                               : null,
