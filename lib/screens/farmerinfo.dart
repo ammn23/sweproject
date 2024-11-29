@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:convert'; // For JSON decoding
 import 'package:http/http.dart' as http; // For REST API calls
+import 'package:image_picker/image_picker.dart'; // For image picking
+import 'dart:io';
 
 class FarmerInfoPage extends StatefulWidget {
   final int userId;
@@ -26,6 +28,10 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
   bool _isLoading = true;
   String _errorMessage = '';
 
+  // Image Picker
+  final ImagePicker _picker = ImagePicker();
+  XFile? _selectedImage;
+
   @override
   void initState() {
     super.initState();
@@ -34,8 +40,7 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
 
   // Fetch farmer and farm details from the backend
   Future<void> _fetchDetails() async {
-    const String apiUrl =
-        'http://10.0.2.2:8080/get_farmer_info'; // Replace with your API endpoint
+    const String apiUrl = 'http://10.0.2.2:8080/farmerinfo';
 
     try {
       final response = await http.get(Uri.parse('$apiUrl/${widget.userId}'));
@@ -68,13 +73,14 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
   Future<void> _saveDetails() async {
     if (!_formKey.currentState!.validate()) return;
 
-    const String apiUrl =
-        'http://10.0.2.2:8080/update_farmer_info'; // Replace with your API endpoint
+    const String apiUrl = 'http://10.0.2.2:8080/updatefarmerinfo';
     final updatedData = {
       'name': name,
       'email': email,
       'phoneNumber': phoneNumber,
-      'profilePicture': profilePictureUrl,
+      'profilePicture': _selectedImage != null
+          ? base64Encode(await _selectedImage!.readAsBytes())
+          : profilePictureUrl,
       'farmName': farmName,
       'address': address,
     };
@@ -107,6 +113,17 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
     }
   }
 
+  // Pick an image from the gallery
+  Future<void> _pickImage() async {
+    final XFile? pickedImage =
+        await _picker.pickImage(source: ImageSource.gallery);
+    if (pickedImage != null) {
+      setState(() {
+        _selectedImage = pickedImage;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -123,16 +140,23 @@ class _FarmerInfoPageState extends State<FarmerInfoPage> {
                       children: [
                         // Profile picture
                         Center(
-                          child: profilePictureUrl != null
-                              ? CircleAvatar(
-                                  radius: 50,
-                                  backgroundImage:
-                                      NetworkImage(profilePictureUrl!),
-                                )
-                              : const CircleAvatar(
-                                  radius: 50,
-                                  child: Icon(Icons.person, size: 50),
-                                ),
+                          child: GestureDetector(
+                            onTap: _pickImage,
+                            child: CircleAvatar(
+                              radius: 50,
+                              backgroundImage: _selectedImage != null
+                                  ? FileImage(
+                                      File(_selectedImage!.path),
+                                    )
+                                  : (profilePictureUrl != null
+                                      ? NetworkImage(profilePictureUrl!)
+                                      : null) as ImageProvider?,
+                              child: _selectedImage == null &&
+                                      profilePictureUrl == null
+                                  ? const Icon(Icons.camera_alt, size: 50)
+                                  : null,
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 20),
 
