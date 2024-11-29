@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'farmereditpl.dart'; // Import the PlEditPage Dart file
+import 'farmercreatepl.dart';
 
 class ProductListPage extends StatefulWidget {
   final int userId;
@@ -89,10 +90,29 @@ class _ProductListPageState extends State<ProductListPage> {
     );
   }
 
+  void _navigateToCreatePage(int userId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PlCreatePage(
+          userId: userId,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Farmer Products')),
+      appBar: AppBar(
+        title: const Text('Farmer Products'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () => _navigateToCreatePage(widget.userId),
+          ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage.isNotEmpty

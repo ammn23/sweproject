@@ -7,16 +7,16 @@ import 'dart:io';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:path/path.dart';
 
-class PlEditPage extends StatefulWidget {
-  final int productId;
+class PlCreatePage extends StatefulWidget {
+  final int userId;
 
-  const PlEditPage({required this.productId, super.key});
+  const PlCreatePage({required this.userId, super.key});
 
   @override
-  State<PlEditPage> createState() => _PlEditPageState();
+  State<PlCreatePage> createState() => _PlEditPageState();
 }
 
-class _PlEditPageState extends State<PlEditPage> {
+class _PlEditPageState extends State<PlCreatePage> {
   final _formKey = GlobalKey<FormState>();
 
   String? productName;
@@ -50,7 +50,7 @@ class _PlEditPageState extends State<PlEditPage> {
   }
 
   Future<void> _fetchProductDetails() async {
-    final apiUrl = 'http://10.0.2.2:8080/get_product_info/${widget.productId}';
+    final apiUrl = 'http://10.0.2.2:8080/get_product_info/${widget.userId}';
 
     try {
       final response = await http.get(Uri.parse(apiUrl));
@@ -82,7 +82,7 @@ class _PlEditPageState extends State<PlEditPage> {
   Future<void> _saveDetails() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final apiUrl = 'http://10.0.2.2:8080/update_product_info/${widget.productId}';
+    final apiUrl = 'http://10.0.2.2:8080/update_product_info/${widget.userId}';
     final updatedData = {
       'name': productName,
       'category': category,
