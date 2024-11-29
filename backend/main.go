@@ -439,6 +439,55 @@ func authenticateUser(req LoginRequest) (*LoginResponse, error) {
 	}, nil
 }
 
+func handleFarmerDashboard(w http.ResponseWriter, r *http.Request) {
+	userID := r.URL.Query().Get("userid")
+	if userID == "" {
+		http.Error(w, "userid parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	// Retrieve farmerid from farmer table
+	var farmerID string
+	err := db.QueryRow("SELECT farmerid FROM farmer WHERE userid = $1", userID).Scan(&farmerID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "No farmer found for the given userid", http.StatusNotFound)
+		} else {
+			log.Printf("Error querying farmer table: %v", err)
+			http.Error(w, "Error querying database", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Retrieve farms associated with the farmerid
+	rows, err := db.Query("SELECT farmid, name FROM farm WHERE farmerid = $1", farmerID)
+	if err != nil {
+		log.Printf("Error querying farm table: %v", err)
+		http.Error(w, "Error querying database", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	// Prepare response
+	var farms []Farm
+	for rows.Next() {
+		var farm Farm
+		if err := rows.Scan(&farm.FarmID, &farm.Name); err != nil {
+			log.Printf("Error scanning farm row: %v", err)
+			http.Error(w, "Error processing database results", http.StatusInternalServerError)
+			return
+		}
+		farms = append(farms, farm)
+	}
+
+	// Return JSON response
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(farms); err != nil {
+		log.Printf("Error encoding response: %v", err)
+		http.Error(w, "Error generating response", http.StatusInternalServerError)
+	}
+}
+
 func main() {
 	var err error
 	db, err = initDB()
@@ -460,6 +509,7 @@ func main() {
 		os.Exit(0)
 	}()
 
+	http.HandleFunc("/farmerdashboard", handleFarmerDashboard)
 	http.HandleFunc("/register_farmer", registerFarmer)
 	http.HandleFunc("/register_buyer", registerBuyer)
 	http.HandleFunc("/login", login)
