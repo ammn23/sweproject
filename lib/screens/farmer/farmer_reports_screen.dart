@@ -6,7 +6,7 @@ class FarmerReportsScreen extends StatelessWidget {
   Future<Map<String, dynamic>> _fetchSalesReport() async {
     try {
       final response = await http.get(
-        Uri.parse('https://your-api-url.com/reports/farmer/sales?farmerId=FARMER_ID'),
+        Uri.parse('https://your-api-url.com/reports/farmer/sales?farmerId=$farmerId'),
       );
       if (response.statusCode == 200) {
         return json.decode(response.body);
