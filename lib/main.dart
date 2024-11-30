@@ -1,4 +1,3 @@
-import 'package:farmersmarketflutter/screens/buyerdashboard.dart';
 import 'package:flutter/material.dart';
 import 'screens/login.dart';  // Import LoginPage
 import 'screens/buyerregistration.dart';  // Import BuyerRegistrationPage
@@ -26,8 +25,6 @@ class FarmersMarketApp extends StatelessWidget {
         '/farmerregistration': (context) => const FarmerRegistrationPage(),
         '/buyerregistration': (context) => const BuyerRegistrationPage(),
         '/farmer_dashboard': (context) => const FarmerDashboard(),
-        '/buyerproductlisting':(context) => const BuyerInterface (),
-        '/buyer_dashboard':(context) => const BuyerDashboard (),
       },
     );
   }

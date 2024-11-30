@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'buyerproductlisting.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -50,10 +51,16 @@ class _LoginPageState extends State<LoginPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Login Successful!')),
             );
-            Navigator.pushNamed(
-              context,
-              role == 'Farmer' ? '/farmer_dashboard' : '/buyer_dashboard',
-            );
+            if (role == 'Farmer') {
+              Navigator.pushNamed(context, '/farmer_dashboard'); // Route
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => BuyerProductListingPage(userId: userId), // Class
+                ),
+              );
+            }
           }
         } else if (response.statusCode == 403) {
           setState(() {
@@ -67,11 +74,11 @@ class _LoginPageState extends State<LoginPage> {
           setState(() {
             errorMessage = 'User not found';
           });
-        }else if (response.statusCode == 500) {
+        } else if (response.statusCode == 500) {
           setState(() {
             errorMessage = 'Internal server error';
           });
-        }else if (response.statusCode == 401) {
+        } else if (response.statusCode == 401) {
           setState(() {
             errorMessage = 'Invalid password';
           });
