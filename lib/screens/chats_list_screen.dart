@@ -22,7 +22,7 @@ class _ChatsListScreenState extends State<ChatsListScreen> {
   Future<void> _fetchChats() async {
     try {
       final response = await http.get(
-        Uri.parse('https://your-api-url.com/chats?userId=USER_ID&role=USER_ROLE'),
+        Uri.parse('https://your-api-url.com/chats?userId=$userId&role=$userRole'),
       );
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
