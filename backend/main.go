@@ -936,6 +936,7 @@ func updateProductInfo(w http.ResponseWriter, r *http.Request) {
 
 func getFarmInfo(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
+		log.Printf("Invalid request method. Use GET.", http.StatusMethodNotAllowed)
 		http.Error(w, "Invalid request method. Use GET.", http.StatusMethodNotAllowed)
 		return
 	}
@@ -943,15 +944,19 @@ func getFarmInfo(w http.ResponseWriter, r *http.Request) {
 	// Extract farmId from the URL
 	pathParts := strings.Split(r.URL.Path, "/")
 	if len(pathParts) < 3 || pathParts[len(pathParts)-1] == "" {
+		log.Printf("Invalid path: %v", r.URL.Path)
 		http.Error(w, "farmId is required in the URL path", http.StatusBadRequest)
 		return
 	}
 
 	farmId, err := strconv.Atoi(pathParts[len(pathParts)-1])
 	if err != nil {
+		log.Printf("Invalid farm ID: %v", r.URL.Path)
 		http.Error(w, "Invalid farmId. It must be an integer.", http.StatusBadRequest)
 		return
 	}
+
+	log.Printf("Received following farmid: %v", farmId)
 
 	// Query to fetch farm details
 	var farmName, location string
@@ -964,8 +969,10 @@ func getFarmInfo(w http.ResponseWriter, r *http.Request) {
 	err = db.QueryRow(farmQuery, farmId).Scan(&farmName, &size, &location)
 	if err != nil {
 		if err == sql.ErrNoRows {
+			log.Printf("Error finding farm: %v", err)
 			http.Error(w, "Farm not found", http.StatusNotFound)
 		} else {
+			log.Printf("Error fetching farm: %v", err)
 			http.Error(w, "Failed to fetch farm details", http.StatusInternalServerError)
 		}
 		return
@@ -979,6 +986,7 @@ func getFarmInfo(w http.ResponseWriter, r *http.Request) {
 	`
 	rows, err := db.Query(resourceQuery, farmId)
 	if err != nil {
+		log.Printf("Error fetching inventory item: %v", err)
 		http.Error(w, "Failed to fetch farm resources", http.StatusInternalServerError)
 		return
 	}
@@ -990,6 +998,7 @@ func getFarmInfo(w http.ResponseWriter, r *http.Request) {
 		var resourceName string
 		var quantity int
 		if err := rows.Scan(&resourceName, &quantity); err != nil {
+			log.Printf("Error scanning inventory item: %v", err)
 			http.Error(w, "Error reading resource data", http.StatusInternalServerError)
 			return
 		}
@@ -1010,6 +1019,7 @@ func getFarmInfo(w http.ResponseWriter, r *http.Request) {
 	// Send the response
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+	return
 }
 
 func main() {
@@ -1045,7 +1055,7 @@ func main() {
 	http.HandleFunc("/get_product_info/", getProductInfo)
 	http.HandleFunc("/update_product_info/", updateProductInfo)
 
-	http.HandleFunc("get_farm_info/", getFarmInfo)
+	http.HandleFunc("/get_farm_info/", getFarmInfo)
 
 	fmt.Println("Server is running at http://localhost:8080")
 	log.Println("Server started on port 8080")
