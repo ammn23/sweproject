@@ -63,6 +63,7 @@ class _FarmInfoPageState extends State<FarmInfoPage> {
           'farm_name': _farmNameController.text,
           'size': double.tryParse(_sizeController.text),
           'location': _locationController.text,
+          'resources': _farmData!['resources'],
         }),
       );
 
@@ -82,6 +83,87 @@ class _FarmInfoPageState extends State<FarmInfoPage> {
         SnackBar(content: Text('Error updating farm info: $e')),
       );
     }
+  }
+
+  void _editResource(int index) {
+    final resource = _farmData!['resources'][index];
+    final TextEditingController typeController =
+        TextEditingController(text: resource['type']);
+    final TextEditingController nameController =
+        TextEditingController(text: resource['name']);
+    final TextEditingController quantityController =
+        TextEditingController(text: resource['quantity'].toString());
+    final TextEditingController priceController =
+        TextEditingController(text: resource['price'].toString());
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit Resource'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: typeController,
+                decoration: const InputDecoration(labelText: 'Type'),
+              ),
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
+              TextFormField(
+                controller: quantityController,
+                decoration: const InputDecoration(labelText: 'Quantity'),
+                keyboardType: TextInputType.number,
+              ),
+              TextFormField(
+                controller: priceController,
+                decoration: const InputDecoration(labelText: 'Price'),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                final int? quantity = int.tryParse(quantityController.text);
+                final double? price = double.tryParse(priceController.text);
+
+                if (quantity == null || quantity < 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Quantity must be 0 or more')),
+                  );
+                  return;
+                }
+
+                if (price == null || price < 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Price must be 0 or more')),
+                  );
+                  return;
+                }
+
+                setState(() {
+                  resource['type'] = typeController.text;
+                  resource['name'] = nameController.text;
+                  resource['quantity'] = quantity;
+                  resource['price'] = price;
+                });
+                Navigator.of(context).pop();
+              },
+              child: const Text('Save'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -161,7 +243,32 @@ class _FarmInfoPageState extends State<FarmInfoPage> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 10),
+                            const Text(
+                              'Resources:',
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                            Expanded(
+                              child: ListView.builder(
+                                itemCount:
+                                    (_farmData!['resources'] as List).length,
+                                itemBuilder: (context, index) {
+                                  final resource =
+                                      _farmData!['resources'][index];
+                                  return ListTile(
+                                    title: Text(
+                                        '${resource['type']}: ${resource['name']}'),
+                                    subtitle: Text(
+                                        'Quantity: ${resource['quantity']} | Price: \$${resource['price']}'),
+                                    trailing: IconButton(
+                                      icon: const Icon(Icons.edit),
+                                      onPressed: () => _editResource(index),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
@@ -220,12 +327,13 @@ class _FarmInfoPageState extends State<FarmInfoPage> {
                               itemCount:
                                   (_farmData!['resources'] as List).length,
                               itemBuilder: (context, index) {
-                                final resource = _farmData!['resources'][index];
+                                final resource =
+                                    _farmData!['resources'][index];
                                 return ListTile(
                                   title: Text(
                                       '${resource['type']}: ${resource['name']}'),
-                                  subtitle:
-                                      Text('Quantity: ${resource['quantity']}'),
+                                  subtitle: Text(
+                                      'Quantity: ${resource['quantity']} | Price: \$${resource['price']}'),
                                 );
                               },
                             ),
