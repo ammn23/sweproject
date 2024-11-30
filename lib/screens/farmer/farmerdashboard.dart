@@ -1,22 +1,24 @@
 import 'package:farmersmarketflutter/screens/farmer/farmershowpl.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert'; // For JSON decoding
 import 'package:http/http.dart' as http; // For making REST API calls
+import 'dart:convert'; // For JSON decoding
 import 'farminfo.dart';
 import 'farmerinfo.dart';
 import 'farmereditpl.dart';
 
 class FarmerDashboard extends StatefulWidget {
-  const FarmerDashboard({super.key});
+  final int userId;
+  final String name;
+
+  const FarmerDashboard({super.key, required this.userId, required this.name});
 
   @override
   State<FarmerDashboard> createState() => _FarmerDashboardState();
 }
 
 class _FarmerDashboardState extends State<FarmerDashboard> {
-  int? userId;
-  String? name;
+  late int userId; // Use late to initialize in initState
+  late String name; // Use late to initialize in initState
   List<dynamic> farms = []; // List to hold multiple farms
   bool _isLoading = true;
   String errorMessage = '';
@@ -24,36 +26,9 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
   @override
   void initState() {
     super.initState();
-    _initializeData();
-  }
-
-  // Initialize user info and fetch farm data
-  Future<void> _initializeData() async {
-    await _getUserInfo();
-    if (userId != null) {
-      await _fetchFarmData();
-    }
-    setState(() {
-      _isLoading = false;
-    });
-  }
-
-  // Retrieve the saved user info from SharedPreferences
-  Future<void> _getUserInfo() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    int? storedUserId = prefs.getInt('userId');
-    String? storedName = prefs.getString('name');
-
-    if (storedUserId != null) {
-      setState(() {
-        userId = storedUserId;
-        name = storedName;
-      });
-    } else {
-      setState(() {
-        errorMessage = 'No user is logged in!';
-      });
-    }
+    userId = widget.userId; // Use the passed userId
+    name = widget.name; // Use the passed name
+    _fetchFarmData(); // Fetch farm data immediately using passed parameters
   }
 
   // Fetch the farm data (farmName and farmId) using a REST API
@@ -104,13 +79,12 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                           style: const TextStyle(fontSize: 20)),
                       const SizedBox(height: 20),
 
-
                       ElevatedButton(
                         onPressed: () {
                           // Navigate to the NewPage
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => (ProductListPage(userId: userId!))),
+                            MaterialPageRoute(builder: (context) => (ProductListPage(userId: userId))),
                           );
                         },
                         child: const Text('Go to New Page'),
@@ -129,7 +103,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                             context,
                             MaterialPageRoute(
                                 builder: (context) =>
-                                    FarmerInfoPage(userId: userId!)),
+                                    FarmerInfoPage(userId: userId)),
                           );
                         },
                         child: Container(

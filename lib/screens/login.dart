@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'buyer/buyerdashboard.dart';
+import 'farmer/farmerdashboard.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -59,7 +60,12 @@ class _LoginPageState extends State<LoginPage> {
             );
 
             if (role == 'Farmer') {
-              Navigator.pushNamed(context, '/farmer_dashboard');
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => FarmerDashboard(userId: userId, name: name),
+                ),
+              );
             } else {
               Navigator.push(
                 context,
