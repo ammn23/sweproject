@@ -148,6 +148,7 @@ class _BuyerProductListingPageState extends State<BuyerProductListingPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Products'),
+        automaticallyImplyLeading: false,
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())

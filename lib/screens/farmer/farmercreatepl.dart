@@ -9,14 +9,15 @@ import 'package:path/path.dart';
 
 class PlCreatePage extends StatefulWidget {
   final int userId;
+  final String name;
 
-  const PlCreatePage({required this.userId, super.key});
+  const PlCreatePage({required this.userId, super.key, required this.name});
 
   @override
-  State<PlCreatePage> createState() => _PlEditPageState();
+  State<PlCreatePage> createState() => _PlCreatePageState();
 }
 
-class _PlEditPageState extends State<PlCreatePage> {
+class _PlCreatePageState extends State<PlCreatePage> {
   final _formKey = GlobalKey<FormState>();
 
   String? productName;
@@ -24,10 +25,8 @@ class _PlEditPageState extends State<PlCreatePage> {
   double? price;
   int? quantity;
   String? description;
-  List<String> imageUrls = [];
   List<XFile> _newImages = [];
-
-  bool _isLoading = true;
+  bool _isLoading = false;
   String _errorMessage = '';
 
   final List<String> categories = [
@@ -45,72 +44,52 @@ class _PlEditPageState extends State<PlCreatePage> {
   @override
   void initState() {
     super.initState();
-    _fetchProductDetails();
     _authenticateWithGoogleDrive();
   }
 
-  Future<void> _fetchProductDetails() async {
-    final apiUrl = 'http://10.0.2.2:8080/get_product_info/${widget.userId}';
-
-    try {
-      final response = await http.get(Uri.parse(apiUrl));
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          productName = data['name'];
-          category = data['category'];
-          price = data['price']?.toDouble();
-          quantity = data['quantity'];
-          description = data['description'];
-          imageUrls = List<String>.from(data['images'] ?? []);
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _errorMessage = 'Failed to load product details!';
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error fetching product details: $e';
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _saveDetails() async {
+  Future<void> _createNewProduct() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final apiUrl = 'http://10.0.2.2:8080/update_product_info/${widget.userId}';
-    final updatedData = {
+    final apiUrl = 'http://10.0.2.2:8080/create_new_product/${widget.userId}';
+    final newData = {
       'name': productName,
       'category': category,
       'price': price,
       'quantity': quantity,
       'description': description,
-      'images': [...imageUrls, ...await _uploadNewImages()],
+      'images': await _uploadNewImages(),
     };
 
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
     try {
-      final response = await http.put(
+      final response = await http.post(
         Uri.parse(apiUrl),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(updatedData),
+        body: jsonEncode(newData),
       );
+
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-          const SnackBar(content: Text('Product updated successfully!')),
+          const SnackBar(content: Text('Product created successfully!')),
         );
+        Navigator.pop(context as BuildContext);
       } else {
-        ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-          const SnackBar(content: Text('Failed to update product!')),
-        );
+        setState(() {
+          _errorMessage = 'Failed to create product!';
+        });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-        SnackBar(content: Text('Error updating product: $e')),
-      );
+      setState(() {
+        _errorMessage = 'Error creating product: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -165,45 +144,15 @@ class _PlEditPageState extends State<PlCreatePage> {
   }
 
   Future<void> _removeImage(int index) async {
-    if (index < imageUrls.length) {
-      final imageUrl = imageUrls[index];
-      const apiUrl = 'http://10.0.2.2:8080/delete_product_image';
-
-      try {
-        final response = await http.post(
-          Uri.parse(apiUrl),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'imageUrl': imageUrl}),
-        );
-
-        if (response.statusCode == 200) {
-          setState(() {
-            imageUrls.removeAt(index);
-          });
-          ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-            const SnackBar(content: Text('Image removed successfully!')),
-          );
-        } else {
-          ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-            const SnackBar(content: Text('Failed to remove image.')),
-          );
-        }
-      } catch (e) {
-        ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-          SnackBar(content: Text('Error removing image: $e')),
-        );
-      }
-    } else {
-      setState(() {
-        _newImages.removeAt(index - imageUrls.length);
-      });
-    }
+    setState(() {
+      _newImages.removeAt(index);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit Product')),
+      appBar: AppBar(title: const Text('Create Product')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage.isNotEmpty
@@ -216,43 +165,29 @@ class _PlEditPageState extends State<PlCreatePage> {
                       children: [
                         SizedBox(
                           height: 200,
-                          child: PageView.builder(
-                            itemCount: imageUrls.length + _newImages.length,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _newImages.length,
                             itemBuilder: (context, index) {
-                              if (index < imageUrls.length) {
-                                return Stack(
-                                  children: [
-                                    Image.network(imageUrls[index],
-                                        fit: BoxFit.cover),
-                                    Positioned(
-                                      top: 10,
-                                      right: 10,
-                                      child: IconButton(
-                                        icon: const Icon(Icons.delete,
-                                            color: Colors.red),
-                                        onPressed: () => _removeImage(index),
-                                      ),
+                              return Stack(
+                                children: [
+                                  Image.file(
+                                    File(_newImages[index].path),
+                                    fit: BoxFit.cover,
+                                    width: 150,
+                                    height: 150,
+                                  ),
+                                  Positioned(
+                                    top: 10,
+                                    right: 10,
+                                    child: IconButton(
+                                      icon: const Icon(Icons.delete,
+                                          color: Colors.red),
+                                      onPressed: () => _removeImage(index),
                                     ),
-                                  ],
-                                );
-                              } else {
-                                final fileIndex = index - imageUrls.length;
-                                return Stack(
-                                  children: [
-                                    Image.file(File(_newImages[fileIndex].path),
-                                        fit: BoxFit.cover),
-                                    Positioned(
-                                      top: 10,
-                                      right: 10,
-                                      child: IconButton(
-                                        icon: const Icon(Icons.delete,
-                                            color: Colors.red),
-                                        onPressed: () => _removeImage(index),
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              }
+                                  ),
+                                ],
+                              );
                             },
                           ),
                         ),
@@ -262,20 +197,17 @@ class _PlEditPageState extends State<PlCreatePage> {
                         ),
                         const SizedBox(height: 20),
                         TextFormField(
-                          initialValue: productName,
                           decoration: const InputDecoration(
                             labelText: 'Product Name',
                             border: OutlineInputBorder(),
                           ),
                           onChanged: (value) => productName = value,
-                          validator: (value) =>
-                              value == null || value.isEmpty
-                                  ? 'Required'
-                                  : null,
+                          validator: (value) => value == null || value.isEmpty
+                              ? 'Required'
+                              : null,
                         ),
                         const SizedBox(height: 20),
                         DropdownButtonFormField<String>(
-                          value: category,
                           decoration: const InputDecoration(
                             labelText: 'Category',
                             border: OutlineInputBorder(),
@@ -289,54 +221,50 @@ class _PlEditPageState extends State<PlCreatePage> {
                           onChanged: (value) => setState(() {
                             category = value;
                           }),
-                          validator: (value) =>
-                              value == null || value.isEmpty
-                                  ? 'Required'
-                                  : null,
+                          validator: (value) => value == null || value.isEmpty
+                              ? 'Required'
+                              : null,
                         ),
                         const SizedBox(height: 20),
                         TextFormField(
-                          initialValue: price?.toString(),
                           decoration: const InputDecoration(
                             labelText: 'Price',
                             border: OutlineInputBorder(),
                           ),
                           keyboardType: TextInputType.number,
-                          onChanged: (value) =>
-                              price = double.tryParse(value),
+                          onChanged: (value) => price = double.tryParse(value),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Required';
                             }
-                            if (double.tryParse(value) == null) {
-                              return 'Invalid price';
+                            final parsedValue = double.tryParse(value);
+                            if (parsedValue == null || parsedValue < 0) {
+                              return 'Price must be a non-negative number';
                             }
                             return null;
                           },
                         ),
                         const SizedBox(height: 20),
                         TextFormField(
-                          initialValue: quantity?.toString(),
                           decoration: const InputDecoration(
                             labelText: 'Quantity',
                             border: OutlineInputBorder(),
                           ),
                           keyboardType: TextInputType.number,
-                          onChanged: (value) =>
-                              quantity = int.tryParse(value),
+                          onChanged: (value) => quantity = int.tryParse(value),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Required';
                             }
-                            if (int.tryParse(value) == null) {
-                              return 'Invalid quantity';
+                            final parsedValue = int.tryParse(value);
+                            if (parsedValue == null || parsedValue < 0) {
+                              return 'Quantity must be a non-negative number';
                             }
                             return null;
                           },
                         ),
                         const SizedBox(height: 20),
                         TextFormField(
-                          initialValue: description,
                           decoration: const InputDecoration(
                             labelText: 'Description',
                             border: OutlineInputBorder(),
@@ -345,7 +273,7 @@ class _PlEditPageState extends State<PlCreatePage> {
                         ),
                         const SizedBox(height: 20),
                         ElevatedButton(
-                          onPressed: _saveDetails,
+                          onPressed: _createNewProduct,
                           child: const Text('Save Details'),
                         ),
                       ],

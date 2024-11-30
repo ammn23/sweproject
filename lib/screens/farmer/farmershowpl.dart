@@ -6,8 +6,9 @@ import 'farmercreatepl.dart';
 
 class ProductListPage extends StatefulWidget {
   final int userId;
+  final String name;
 
-  const ProductListPage({required this.userId, super.key});
+  const ProductListPage({required this.userId, super.key, required this.name});
 
   @override
   State<ProductListPage> createState() => _ProductListPageState();
@@ -95,7 +96,7 @@ class _ProductListPageState extends State<ProductListPage> {
       context,
       MaterialPageRoute(
         builder: (context) => PlCreatePage(
-          userId: userId,
+          userId: userId, name: widget.name,
         ),
       ),
     );
