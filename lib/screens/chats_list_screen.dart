@@ -6,7 +6,7 @@ import 'chat_screen.dart';
 
 class ChatsListScreen extends StatefulWidget {
   @override
-  _ChatsListScreenState createState() => _ChatsListScreenState();
+  State<ChatsListScreen> createState() => _ChatsListScreenState();
 }
 
 class _ChatsListScreenState extends State<ChatsListScreen> {

@@ -8,6 +8,7 @@ import 'screens/farmer/farmerregistration.dart';  // Import FarmerRegistrationPa
 import 'screens/farmer/farmerdashboard.dart';  // Import FarmerDashboardPage
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/chat_screen.dart';
+import 'screens/chats_list_screen.dart';
 import 'screens/reports_screen.dart';
 
 void main() async {
@@ -76,7 +77,8 @@ class FarmersMarketApp extends StatelessWidget {
         '/farmerregistration': (context) => const FarmerRegistrationPage(),
         '/buyerregistration': (context) => const BuyerRegistrationPage(),
         '/farmer_dashboard': (context) => const FarmerDashboard(),
-        '/chatscreen':(context)=> const ChatScreenPage(buyerName: 'John', farmerName: 'Mary') ,
+        '/chatscreen':(context)=> const ChatScreen(chatId: 1,) ,
+        '/chats_list_screen':(context)=> ChatsListScreen() ,
         '/reports_screen':(context)=>ReportsScreen(),
       },
     );

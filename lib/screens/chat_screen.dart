@@ -3,15 +3,15 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class ChatScreen extends StatefulWidget {
-  final String chatId;
+  final int chatId;
 
   const ChatScreen({
-    Key? key,
+    super.key,
     required this.chatId,
-  }) : super(key: key);
+  });
 
   @override
-  _ChatScreenState createState() => _ChatScreenState();
+  State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
