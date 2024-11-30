@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class FarmInfoPage extends StatefulWidget {
-  final int farmId; // Pass the user ID to fetch farm data
+  final int farmId; // Pass the farm ID to fetch farm data
   const FarmInfoPage({super.key, required this.farmId});
 
   @override
