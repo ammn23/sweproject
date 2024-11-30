@@ -1024,6 +1024,93 @@ func getFarmInfo(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func updateFarmInfo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		log.Printf("Invalid request method. Use PUT.")
+		http.Error(w, "Invalid request method. Use PUT.", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract farmId from URL
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 3 || pathParts[len(pathParts)-1] == "" {
+		log.Printf("Invalid path: %v", r.URL.Path)
+		http.Error(w, "farmId is required in the URL path", http.StatusBadRequest)
+		return
+	}
+
+	farmId, err := strconv.Atoi(pathParts[len(pathParts)-1])
+	if err != nil {
+		log.Printf("Invalid farm ID: %v", err)
+		http.Error(w, "Invalid farmId. It must be an integer.", http.StatusBadRequest)
+		return
+	}
+
+	// Parse request body
+	var requestBody struct {
+		FarmName  string  `json:"farm_name"`
+		Size      float64 `json:"size"`
+		Location  string  `json:"location"`
+		Resources []struct {
+			Type     string `json:"type"`
+			Name     string `json:"name"`
+			Quantity int    `json:"quantity"`
+		} `json:"resources"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+		log.Printf("Error parsing request body: %v", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Update farm details
+	updateFarmQuery := `
+        UPDATE farm
+        SET name = $1, size = $2, location = $3
+        WHERE farmid = $4
+    `
+	_, err = db.Exec(updateFarmQuery, requestBody.FarmName, requestBody.Size, requestBody.Location, farmId)
+	if err != nil {
+		log.Printf("Error updating farm details: %v", err)
+		http.Error(w, "Failed to update farm details", http.StatusInternalServerError)
+		return
+	}
+
+	// Delete existing resources for the farm
+	deleteResourcesQuery := `DELETE FROM inventory_item WHERE farmid = $1`
+	_, err = db.Exec(deleteResourcesQuery, farmId)
+	if err != nil {
+		log.Printf("Error deleting existing resources: %v", err)
+		http.Error(w, "Failed to update resources", http.StatusInternalServerError)
+		return
+	}
+
+	// Insert new resources
+	insertResourceQuery := `
+        INSERT INTO inventory_item (farmid, type, name, quantity)
+        VALUES ($1, $2, $3, $4)
+    `
+
+	for _, resource := range requestBody.Resources {
+		_, err = db.Exec(insertResourceQuery, farmId, resource.Type, resource.Name, resource.Quantity)
+		if err != nil {
+			log.Printf("Error inserting resource: %v", err)
+			http.Error(w, "Failed to insert resources", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Send updated farm data as response
+	response := map[string]interface{}{
+		"farm_name": requestBody.FarmName,
+		"size":      requestBody.Size,
+		"location":  requestBody.Location,
+		"resources": requestBody.Resources,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 func main() {
 	var err error
 	db, err = initDB()
@@ -1058,6 +1145,7 @@ func main() {
 	http.HandleFunc("/update_product_info/", updateProductInfo)
 
 	http.HandleFunc("/get_farm_info/", getFarmInfo)
+	http.HandleFunc("/update_farm_info/", updateFarmInfo)
 
 	fmt.Println("Server is running at http://localhost:8080")
 	log.Println("Server started on port 8080")
