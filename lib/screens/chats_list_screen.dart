@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
 import 'chat_screen.dart';
 
 class ChatsListScreen extends StatefulWidget {
@@ -10,6 +9,9 @@ class ChatsListScreen extends StatefulWidget {
 }
 
 class _ChatsListScreenState extends State<ChatsListScreen> {
+  final String userId = "123";  // Mock user ID
+  final String userRole = "buyer";  // Mock role
+
   List<Map<String, dynamic>> _chats = [];
   bool _isLoading = true;
 
@@ -61,7 +63,10 @@ class _ChatsListScreenState extends State<ChatsListScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ChatScreen(chatId: chat['chatId']),
+                  builder: (context) => ChatScreen(
+                    chatId: chat['chatId'],
+                    userId: userId,
+                  ),
                 ),
               );
             },
