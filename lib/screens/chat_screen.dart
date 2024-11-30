@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-class ChatScreen extends StatefulWidget {
+class ChatScreenPage extends StatefulWidget {
   final String buyerName;
   final String farmerName;
 
-  const ChatScreen({
+  const ChatScreenPage({
     Key? key,
     required this.buyerName,
     required this.farmerName,
@@ -14,7 +14,7 @@ class ChatScreen extends StatefulWidget {
   _ChatScreenState createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreenPage> {
   final List<Map<String, String>> _messages = [];
   final TextEditingController _messageController = TextEditingController();
 

@@ -3,10 +3,12 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'screens/login.dart';  // Import LoginPage
-import 'screens/buyerregistration.dart';  // Import BuyerRegistrationPage
-import 'screens/farmerregistration.dart';  // Import FarmerRegistrationPage
-import 'screens/farmerdashboard.dart';  // Import FarmerDashboardPage
+import 'screens/buyer/buyerregistration.dart';  // Import BuyerRegistrationPage
+import 'screens/farmer/farmerregistration.dart';  // Import FarmerRegistrationPage
+import 'screens/farmer/farmerdashboard.dart';  // Import FarmerDashboardPage
 import 'package:shared_preferences/shared_preferences.dart';
+import 'screens/chat_screen.dart';
+import 'screens/reports_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -74,6 +76,8 @@ class FarmersMarketApp extends StatelessWidget {
         '/farmerregistration': (context) => const FarmerRegistrationPage(),
         '/buyerregistration': (context) => const BuyerRegistrationPage(),
         '/farmer_dashboard': (context) => const FarmerDashboard(),
+        '/chatscreen':(context)=> const ChatScreenPage(buyerName: 'John', farmerName: 'Mary') ,
+        '/reports_screen':(context)=>ReportsScreen(),
       },
     );
   }
@@ -124,6 +128,20 @@ class HomePage extends StatelessWidget {
                 Navigator.pushNamed(context, '/login'); // Navigate to LoginPage
               },
               child: const Text('Login'),
+            ),
+
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/chatscreen'); // Navigate to LoginPage
+              },
+              child: const Text('Chatscreen'),
+            ),
+
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/reports_screen'); // Navigate to LoginPage
+              },
+              child: const Text('reports screen'),
             ),
           ],
         ),
