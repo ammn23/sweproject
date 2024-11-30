@@ -6,7 +6,7 @@ class BuyerReportsScreen extends StatelessWidget {
   Future<Map<String, dynamic>> _fetchBuyerReport() async {
     try {
       final response = await http.get(
-        Uri.parse('https://your-api-url.com/reports/buyer?buyerId=BUYER_ID'),
+        Uri.parse('https://your-api-url.com/reports/buyer?buyerId=$buyerId'),
       );
       if (response.statusCode == 200) {
         return json.decode(response.body);
