@@ -93,8 +93,7 @@ class _FarmInfoPageState extends State<FarmInfoPage> {
         TextEditingController(text: resource['name']);
     final TextEditingController quantityController =
         TextEditingController(text: resource['quantity'].toString());
-    final TextEditingController priceController =
-        TextEditingController(text: resource['price'].toString());
+
 
     showDialog(
       context: context,
@@ -117,18 +116,12 @@ class _FarmInfoPageState extends State<FarmInfoPage> {
                 decoration: const InputDecoration(labelText: 'Quantity'),
                 keyboardType: TextInputType.number,
               ),
-              TextFormField(
-                controller: priceController,
-                decoration: const InputDecoration(labelText: 'Price'),
-                keyboardType: TextInputType.number,
-              ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () {
                 final int? quantity = int.tryParse(quantityController.text);
-                final double? price = double.tryParse(priceController.text);
 
                 if (quantity == null || quantity < 0) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -137,18 +130,11 @@ class _FarmInfoPageState extends State<FarmInfoPage> {
                   return;
                 }
 
-                if (price == null || price < 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Price must be 0 or more')),
-                  );
-                  return;
-                }
 
                 setState(() {
                   resource['type'] = typeController.text;
                   resource['name'] = nameController.text;
                   resource['quantity'] = quantity;
-                  resource['price'] = price;
                 });
                 Navigator.of(context).pop();
               },
@@ -260,7 +246,7 @@ class _FarmInfoPageState extends State<FarmInfoPage> {
                                     title: Text(
                                         '${resource['type']}: ${resource['name']}'),
                                     subtitle: Text(
-                                        'Quantity: ${resource['quantity']} | Price: \$${resource['price']}'),
+                                        'Quantity: ${resource['quantity']}'),
                                     trailing: IconButton(
                                       icon: const Icon(Icons.edit),
                                       onPressed: () => _editResource(index),
@@ -331,9 +317,9 @@ class _FarmInfoPageState extends State<FarmInfoPage> {
                                     _farmData!['resources'][index];
                                 return ListTile(
                                   title: Text(
-                                      '${resource['type']}: ${resource['name']}'),
+                                      '${resource['type']}'),
                                   subtitle: Text(
-                                      'Quantity: ${resource['quantity']} | Price: \$${resource['price']}'),
+                                      'Quantity: ${resource['quantity']} '),
                                 );
                               },
                             ),
