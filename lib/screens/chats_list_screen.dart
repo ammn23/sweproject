@@ -9,7 +9,7 @@ class ChatsListScreen extends StatefulWidget {
 }
 
 class _ChatsListScreenState extends State<ChatsListScreen> {
-  final int userId = "123";  // Mock user ID
+  final int userId = 123;  // Mock user ID
   final String userRole = "buyer";  // Mock role
 
   List<Map<String, dynamic>> _chats = [];
