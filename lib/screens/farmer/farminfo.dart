@@ -17,7 +17,7 @@ class _FarmInfoPageState extends State<FarmInfoPage> {
   Future<void> _fetchFarmInfo() async {
     String apiUrl = 'http://10.0.2.2:8080/get_farm_info/${widget.farmId}';
     try {
-      final response = await http.get(Uri.parse('$apiUrl/${widget.farmId}'));
+      final response = await http.get(Uri.parse(apiUrl));
 
       if (response.statusCode == 200) {
         setState(() {
