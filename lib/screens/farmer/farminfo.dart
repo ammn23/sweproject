@@ -15,7 +15,7 @@ class _FarmInfoPageState extends State<FarmInfoPage> {
   Map<String, dynamic>? _farmData;
 
   Future<void> _fetchFarmInfo() async {
-    const String apiUrl = 'http://10.0.2.2:8080/get_farm_info';
+    String apiUrl = 'http://10.0.2.2:8080/get_farm_info/${widget.farmId}';
     try {
       final response = await http.get(Uri.parse('$apiUrl/${widget.farmId}'));
 

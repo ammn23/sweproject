@@ -46,44 +46,14 @@ class _PlEditPageState extends State<PlCreatePage> {
   @override
   void initState() {
     super.initState();
-    _fetchProductDetails();
     _authenticateWithGoogleDrive();
   }
 
-  Future<void> _fetchProductDetails() async {
-    final apiUrl = 'http://10.0.2.2:8080/get_product_info/${widget.userId}';
 
-    try {
-      final response = await http.get(Uri.parse(apiUrl));
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          productName = data['name'];
-          category = data['category'];
-          price = data['price']?.toDouble();
-          quantity = data['quantity'];
-          description = data['description'];
-          imageUrls = List<String>.from(data['images'] ?? []);
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _errorMessage = 'Failed to load product details!';
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error fetching product details: $e';
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _saveDetails() async {
+  Future<void> _createNewProduct() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final apiUrl = 'http://10.0.2.2:8080/update_product_info/${widget.userId}';
+    final apiUrl = 'http://10.0.2.2:8080/create_new_product/${widget.userId}';
     final updatedData = {
       'name': productName,
       'category': category,
@@ -101,11 +71,11 @@ class _PlEditPageState extends State<PlCreatePage> {
       );
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-          const SnackBar(content: Text('Product updated successfully!')),
+          const SnackBar(content: Text('Product created successfully!')),
         );
       } else {
         ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-          const SnackBar(content: Text('Failed to update product!')),
+          const SnackBar(content: Text('Failed to create product!')),
         );
       }
     } catch (e) {
@@ -346,7 +316,7 @@ class _PlEditPageState extends State<PlCreatePage> {
                         ),
                         const SizedBox(height: 20),
                         ElevatedButton(
-                          onPressed: _saveDetails,
+                          onPressed: _createNewProduct,
                           child: const Text('Save Details'),
                         ),
                       ],
