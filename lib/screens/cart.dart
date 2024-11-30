@@ -1,203 +1,234 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'order.dart';
+import 'buyerdashboard.dart';
+import 'chat.dart';
+import 'buyerproductlisting.dart';
 
 class CartPage extends StatefulWidget {
-  const CartPage({super.key});
+  final int userId;
+  final String name;
+
+  const CartPage({required this.userId, required this.name, super.key});
 
   @override
   State<CartPage> createState() => _CartPageState();
 }
 
 class _CartPageState extends State<CartPage> {
-  final String _apiBaseUrl = "https://yourapi.com"; // Replace with your API URL
-  List<Map<String, dynamic>> _cartItems = [];
-  int _buyerID = 456; // This should be dynamically set to the logged-in user's ID
-
-  bool _isLoading = true;
-
-  // Fetch cart items from the database for the specific buyer
-  Future<void> _fetchCartItems() async {
-    try {
-      final response = await http.get(Uri.parse("$_apiBaseUrl/cart/$_buyerID"));
-      if (response.statusCode == 200) {
-        setState(() {
-          _cartItems = List<Map<String, dynamic>>.from(jsonDecode(response.body));
-          _isLoading = false;
-        });
-      } else {
-        _showError("Failed to load cart items.");
-      }
-    } catch (e) {
-      _showError("Error fetching cart items.");
-    }
-  }
-
-  // Update the quantity of a product in the cart
-  Future<void> _updateCartQuantity(int productID, int quantity) async {
-    if (quantity > 0) {
-      try {
-        final response = await http.put(
-          Uri.parse("$_apiBaseUrl/cart/update"),
-          headers: {"Content-Type": "application/json"},
-          body: jsonEncode({
-            "productID": productID,
-            "buyerID": _buyerID,
-            "quantity": quantity,
-          }),
-        );
-
-        if (response.statusCode == 200) {
-          final responseData = jsonDecode(response.body);
-          if (responseData['status'] == 'success') {
-            _showSuccess("Cart updated successfully.");
-            _fetchCartItems(); // Reload the cart items
-          } else {
-            _showError("Failed to update cart.");
-          }
-        } else {
-          _showError("Failed to update cart.");
-        }
-      } catch (e) {
-        _showError("Error updating cart.");
-      }
-    } else {
-      _showError("Quantity must be greater than 0.");
-    }
-  }
-
-  // Remove product from the cart
-  Future<void> _removeFromCart(int productID) async {
-    try {
-      final response = await http.delete(
-        Uri.parse("$_apiBaseUrl/cart/remove"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "productID": productID,
-          "buyerID": _buyerID,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        if (responseData['status'] == 'success') {
-          _showSuccess("Product removed from cart.");
-          _fetchCartItems(); // Reload the cart items
-        } else {
-          _showError("Failed to remove product from cart.");
-        }
-      } else {
-        _showError("Failed to remove product from cart.");
-      }
-    } catch (e) {
-      _showError("Error removing product from cart.");
-    }
-  }
-
-  // Show success message
-  void _showSuccess(String message) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text("Success"),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("OK"),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // Show error message
-  void _showError(String message) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text("Error"),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("OK"),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  List<Map<String, dynamic>> cartItems = [];
+  double totalCost = 0.0;
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _fetchCartItems(); // Load cart items when the page is loaded
+    fetchCartDetails();
+  }
+
+  Future<void> fetchCartDetails() async {
+    try {
+      final response = await http.get(
+        Uri.parse('http://10.0.2.2:8080/cart_items?buyer_id=${widget.userId}'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = List<Map<String, dynamic>>.from(jsonDecode(response.body));
+
+        double total = data.fold(
+          0.0,
+          (sum, item) => sum + item['total_price'],
+        );
+
+        setState(() {
+          cartItems = data;
+          totalCost = total;
+          isLoading = false;
+        });
+
+        await http.post(
+          Uri.parse('http://10.0.2.2:8080/update_cart_total'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'buyer_id': widget.userId,
+            'total_cost': total,
+          }),
+        );
+      } else {
+        throw Exception('Failed to fetch cart details');
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> deleteCartItem(int productId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse(
+          'http://10.0.2.2:8080/delete_cart_item?user_id=${widget.userId}&product_id=$productId',
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          cartItems.removeWhere((item) => item['product_id'] == productId);
+          totalCost = cartItems.fold(
+            0.0,
+            (sum, item) => sum + item['total_price'],
+          );
+        });
+
+        await http.post(
+          Uri.parse('http://10.0.2.2:8080/update_cart_total'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'user_id': widget.userId,
+            'total_cost': totalCost,
+          }),
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Product removed from cart')),
+          );
+        }
+      } else {
+        throw Exception('Failed to delete item from cart');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
+  void navigateToCreateOrderPage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateOrderPage(userId: widget.userId),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Your Cart"),
+        title: const Text('Cart'),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _cartItems.isEmpty
-                    ? const Center(child: Text("Your cart is empty"))
-                    : ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _cartItems.length,
-                        itemBuilder: (context, index) {
-                          final cartItem = _cartItems[index];
-                          return Card(
-                            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            child: ListTile(
-                              leading: cartItem['image'] != null
-                                  ? Image.network(
-                                      cartItem['image'],
-                                      width: 50,
-                                      height: 50,
-                                      fit: BoxFit.cover,
-                                    )
-                                  : const Icon(Icons.image, size: 50),
-                              title: Text(cartItem['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text("Price: \$${cartItem['price']}"),
-                                  Text("Quantity: ${cartItem['quantity']}"),
-                                  Text("Total: \$${cartItem['price'] * cartItem['quantity']}"),
-                                ],
-                              ),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.remove_shopping_cart),
-                                onPressed: () {
-                                  _removeFromCart(cartItem['productID']);
-                                },
-                              ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: cartItems.length,
+                    itemBuilder: (context, index) {
+                      final item = cartItems[index];
+                      return ListTile(
+                        leading: const Icon(Icons.shopping_cart),
+                        title: Text(item['product_name']),
+                        subtitle:
+                            Text('Quantity: ${item['selected_quantity']}'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '\$${item['total_price'].toStringAsFixed(2)}',
                             ),
-                          );
-                        },
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () {
+                                deleteCartItem(item['product_id']);
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Total Price: \$${totalCost.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-            const SizedBox(height: 20),
-            // Checkout Button (if you have a checkout page)
-            ElevatedButton(
-              onPressed: () {
-                // Navigate to the checkout page (You can implement this)
-              },
-              child: const Text("Proceed to Checkout"),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: navigateToCreateOrderPage,
+                        child: const Text('Create Order'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: 2, // Highlight Cart
+        onDestinationSelected: (index) {
+          if (index == 0) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    BuyerDashboard(userId: widget.userId, name: widget.name),
+              ),
+            );
+          } else if (index == 1) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    BuyerProductListingPage(userId: widget.userId, name: widget.name),
+              ),
+            );
+          } else if (index == 2) {
+            // Stay on Cart
+          } else if (index == 3) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChatPage(),
+              ),
+            );
+          }
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.list),
+            label: 'Products',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.shopping_cart),
+            label: 'Cart',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.chat),
+            label: 'Chat',
+          ),
+        ],
       ),
     );
   }
 }
+
+

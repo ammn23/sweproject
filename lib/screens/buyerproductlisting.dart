@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
-import 'dart:convert'; // For JSON decoding
 import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'productdetailspage.dart';
+import 'buyerdashboard.dart';
+import 'cart.dart';
+import 'chat.dart';
 
 class BuyerProductListingPage extends StatefulWidget {
   final int userId;
+  final String name;
 
-  const BuyerProductListingPage({required this.userId, super.key});
+  const BuyerProductListingPage({required this.userId, super.key, required this.name});
 
   @override
   State<BuyerProductListingPage> createState() =>
@@ -13,107 +18,128 @@ class BuyerProductListingPage extends StatefulWidget {
 }
 
 class _BuyerProductListingPageState extends State<BuyerProductListingPage> {
-  List<dynamic> _products = [];
-  List<dynamic> _filteredProducts = [];
-  bool _isLoading = true;
-  String _searchQuery = '';
-  RangeValues _priceRange = const RangeValues(0, 1000);
-  String? _selectedCategory;
-  String? _farmLocation;
+  List<Map<String, dynamic>> products = [];
+  List<Map<String, dynamic>> filteredProducts = [];
+  Map<int, int> selectedQuantities = {};
+  bool isLoading = true;
 
-  final List<String> categories = [
+  // Filters
+  double minPrice = 0.0;
+  double maxPrice = double.infinity;
+  String? selectedCategory;
+  String? selectedFarmLocation;
+
+  List<String> categories = [
+    'Meat',
+    'Dairy',
     'Vegetables',
     'Fruits',
-    'Dairy',
-    'Meat',
     'Condiments',
     'Bakery'
   ];
+  List<String> farmLocations = [];
 
   @override
   void initState() {
     super.initState();
-    _fetchProducts();
+    fetchProducts();
+    fetchFarmLocations();
   }
 
-  Future<void> _fetchProducts() async {
-    final apiUrl = 'http://10.0.2.2:8080/get_all_products';
-    try {
-      final response = await http.get(Uri.parse(apiUrl));
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          _products = data;
-          _filteredProducts = data;
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _isLoading = false;
-        });
-        print('Failed to fetch products');
-      }
-    } catch (e) {
+  Future<void> fetchProducts() async {
+    final response =
+        await http.get(Uri.parse('http://10.0.2.2:8080/products_with_images'));
+    if (response.statusCode == 200) {
+      final data = List<Map<String, dynamic>>.from(jsonDecode(response.body));
       setState(() {
-        _isLoading = false;
+        products = data;
+        filteredProducts = products;
+        selectedQuantities = {for (var product in products) product['id']: 1};
+        isLoading = false;
       });
-      print('Error fetching products: $e');
+    } else {
+      throw Exception('Failed to fetch products');
     }
   }
 
-  void _applyFilters() {
-    setState(() {
-      _filteredProducts = _products.where((product) {
-        final matchesSearch = _searchQuery.isEmpty ||
-            product['name'].toLowerCase().contains(_searchQuery.toLowerCase());
-        final matchesCategory = _selectedCategory == null ||
-            product['category'] == _selectedCategory;
-        final matchesPrice = product['price'] >= _priceRange.start &&
-            product['price'] <= _priceRange.end;
-        final matchesLocation =
-            _farmLocation == null || product['farm_location'] == _farmLocation;
+  Future<void> fetchFarmLocations() async {
+    final response =
+        await http.get(Uri.parse('http://10.0.2.2:8080/farm_locations'));
+    if (response.statusCode == 200) {
+      setState(() {
+        farmLocations = List<String>.from(jsonDecode(response.body));
+      });
+    } else {
+      throw Exception('Failed to fetch farm locations');
+    }
+  }
 
-        return matchesSearch &&
-            matchesCategory &&
-            matchesPrice &&
-            matchesLocation;
+  void applyFilters() {
+    setState(() {
+      filteredProducts = products.where((product) {
+        final double price = product['price'];
+        final String category = product['category'];
+        final String farmLocation = product['farm_location'];
+
+        final matchesPrice = price >= minPrice && price <= maxPrice;
+        final matchesCategory =
+            selectedCategory == null || category == selectedCategory;
+        final matchesFarmLocation = selectedFarmLocation == null ||
+            farmLocation == selectedFarmLocation;
+
+        return matchesPrice && matchesCategory && matchesFarmLocation;
       }).toList();
     });
   }
 
-  Future<void> _addToCart(
-      int productId, int quantity, int availableQuantity) async {
-    if (quantity > availableQuantity) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              'Error: Selected quantity exceeds available stock (${availableQuantity}).'),
-        ),
-      );
-      return;
-    }
-
-    final apiUrl = 'http://10.0.2.2:8080/add_to_cart';
-    final cartData = {
-      'userId': widget.userId,
-      'productId': productId,
-      'quantity': quantity,
-    };
+  Future<void> _addToCart(int productId, int quantity, double price) async {
     try {
-      final response = await http.post(
-        Uri.parse(apiUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(cartData),
-      );
-      if (response.statusCode == 200) {
+      final product = products.firstWhere((p) => p['id'] == productId);
+      if (quantity > product['available']) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Product added to cart!')),
+          const SnackBar(
+              content: Text('Selected quantity exceeds available stock')),
         );
+        return;
+      }
+
+      final includedInResponse = await http.post(
+        Uri.parse('http://10.0.2.2:8080/add_to_included_in'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': widget.userId,
+          'product_id': productId,
+          'selected_quantity': quantity,
+          'total_price': price,
+        }),
+      );
+
+      if (includedInResponse.statusCode == 200) {
+        final cartResponse = await http.post(
+          Uri.parse('http://10.0.2.2:8080/update_cart'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'buyer_id': widget.userId}),
+        );
+
+        if (cartResponse.statusCode == 200) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Product added to cart successfully!')),
+            );
+          }
+        } else {
+          throw Exception('Failed to update cart');
+        }
       } else {
-        print('Failed to add product to cart');
+        throw Exception('Failed to add product to included_in');
       }
     } catch (e) {
-      print('Error adding product to cart: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     }
   }
 
@@ -121,221 +147,155 @@ class _BuyerProductListingPageState extends State<BuyerProductListingPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Product Listing'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              showSearch(
-                context: context,
-                delegate: ProductSearchDelegate(
-                  categories: categories,
-                  onSearch: (query) {
-                    setState(() {
-                      _searchQuery = query;
-                      _applyFilters();
-                    });
-                  },
-                ),
-              );
-            },
-          ),
-        ],
+        title: const Text('Products'),
       ),
-      body: _isLoading
+      body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                // Filter Widgets
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Row(
+          : GridView.builder(
+              padding: const EdgeInsets.all(10.0),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 2 / 3,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+              ),
+              itemCount: filteredProducts.length,
+              itemBuilder: (context, index) {
+                final product = filteredProducts[index];
+                final price = product['price'] as double;
+                final available = product['available'] as int;
+                final quantity = selectedQuantities[product['id']] ?? 1;
+
+                return Card(
+                  elevation: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      DropdownButton<String>(
-                        hint: const Text('Category'),
-                        value: _selectedCategory,
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedCategory = value;
-                            _applyFilters();
-                          });
-                        },
-                        items: categories.map((category) {
-                          return DropdownMenuItem(
-                            value: category,
-                            child: Text(category),
-                          );
-                        }).toList(),
+                      AspectRatio(
+                        aspectRatio: 3 / 2,
+                        child: Image.network(
+                          product['first_image_url'],
+                          fit: BoxFit.cover,
+                        ),
                       ),
-                      const SizedBox(width: 10),
-                      DropdownButton<String>(
-                        hint: const Text('Farm Location'),
-                        value: _farmLocation,
-                        onChanged: (value) {
-                          setState(() {
-                            _farmLocation = value;
-                            _applyFilters();
-                          });
-                        },
-                        items: _products
-                            .map(
-                                (product) => product['farm_location'] as String)
-                            .toSet()
-                            .map((location) {
-                          return DropdownMenuItem(
-                            value: location,
-                            child: Text(location),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                          'Price Range: ${_priceRange.start.round()} - ${_priceRange.end.round()}'),
-                      RangeSlider(
-                        values: _priceRange,
-                        min: 0,
-                        max: 1000,
-                        onChanged: (values) {
-                          setState(() {
-                            _priceRange = values;
-                            _applyFilters();
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: GridView.builder(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.8,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                    ),
-                    itemCount: _filteredProducts.length,
-                    itemBuilder: (context, index) {
-                      final product = _filteredProducts[index];
-                      return Card(
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Image.network(
-                                product['images'][0],
-                                fit: BoxFit.cover,
-                                width: double.infinity,
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ProductDetailsPage(
+                                      productId: product['id'],
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: Text(
+                                product['name'],
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(product['name'],
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold)),
-                                  Text('Price: \$${product['price']}'),
-                                  Text('Available: ${product['quantity']}'),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      IconButton(
-                                        icon:
-                                            const Icon(Icons.add_shopping_cart),
-                                        onPressed: () {
-                                          _addToCart(product['id'], 1,
-                                              product['quantity']);
-                                        },
-                                      ),
-                                      DropdownButton<int>(
-                                        hint: const Text('Qty'),
-                                        onChanged: (value) {
-                                          if (value != null) {
-                                            _addToCart(product['id'], value,
-                                                product['quantity']);
-                                          }
-                                        },
-                                        items: List.generate(
-                                            product['quantity'], (index) {
-                                          return DropdownMenuItem(
-                                            value: index + 1,
-                                            child: Text('${index + 1}'),
-                                          );
-                                        }),
-                                      ),
-                                    ],
+                            const SizedBox(height: 5),
+                            Text('Price: \$${price.toStringAsFixed(2)}'),
+                            Text('Available: $available'),
+                            const SizedBox(height: 5),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                DropdownButton<int>(
+                                  value: quantity,
+                                  items: List.generate(
+                                    available,
+                                    (i) => DropdownMenuItem(
+                                      value: i + 1,
+                                      child: Text('${i + 1}'),
+                                    ),
                                   ),
-                                ],
-                              ),
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() {
+                                        selectedQuantities[product['id']] =
+                                            value;
+                                      });
+                                    }
+                                  },
+                                ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    _addToCart(
+                                      product['id'],
+                                      quantity,
+                                      price * quantity,
+                                    );
+                                  },
+                                  child: const Text('Add to Cart'),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                );
+              },
             ),
-    );
-  }
-}
-
-class ProductSearchDelegate extends SearchDelegate {
-  final List<String> categories;
-  final Function(String) onSearch;
-
-  ProductSearchDelegate({required this.categories, required this.onSearch});
-
-  @override
-  List<Widget>? buildActions(BuildContext context) {
-    return [
-      IconButton(
-        icon: const Icon(Icons.clear),
-        onPressed: () {
-          query = '';
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: 1, // Highlight Products
+        onDestinationSelected: (index) {
+          if (index == 0) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => BuyerDashboard(userId: widget.userId, name: widget.name),
+              ),
+            );
+          } else if (index == 1) {
+            // Stay on Products
+          } else if (index == 2) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CartPage(userId: widget.userId, name: widget.name),
+              ),
+            );
+          } else if (index == 3) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChatPage(),
+              ),
+            );
+          }
         },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.list),
+            label: 'Products',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.shopping_cart),
+            label: 'Cart',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.chat),
+            label: 'Chat',
+          ),
+        ],
       ),
-    ];
-  }
-
-  @override
-  Widget? buildLeading(BuildContext context) {
-    return IconButton(
-      icon: const Icon(Icons.arrow_back),
-      onPressed: () {
-        close(context, null);
-      },
-    );
-  }
-
-  @override
-  Widget buildResults(BuildContext context) {
-    onSearch(query);
-    close(context, null);
-    return Container();
-  }
-
-  @override
-  Widget buildSuggestions(BuildContext context) {
-    final suggestions = categories.where((category) {
-      return category.toLowerCase().contains(query.toLowerCase());
-    }).toList();
-
-    return ListView.builder(
-      itemCount: suggestions.length,
-      itemBuilder: (context, index) {
-        return ListTile(
-          title: Text(suggestions[index]),
-          onTap: () {
-            query = suggestions[index];
-            onSearch(query);
-            close(context, null);
-          },
-        );
-      },
     );
   }
 }

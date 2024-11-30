@@ -3,7 +3,16 @@ plugins {
     id "kotlin-android"
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id "dev.flutter.flutter-gradle-plugin"
+    apply plugin: 'com.google.gms.google-services'
 }
+
+dependencies {
+    // Firebase SDKs you need, for example:
+    implementation 'com.google.firebase:firebase-auth:21.0.1'
+    implementation 'com.google.firebase:firebase-firestore:24.0.0'
+    // Add more Firebase SDKs as required
+}
+
 
 android {
     namespace = "com.example.farmersmarketflutter"

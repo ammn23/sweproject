@@ -6,6 +6,7 @@ buildscript {
     dependencies {
         // This is where you should define the version of the Android Gradle Plugin
         classpath 'com.android.tools.build:gradle:8.0.0'  // Make sure this line is in the dependencies block
+        id 'com.google.gms.google-services' version '4.4.2' apply false
     }
 }
 

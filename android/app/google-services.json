@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "167063846366",
+    "project_id": "farmersmarket-17973",
+    "storage_bucket": "farmersmarket-17973.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:167063846366:android:4bd58baa64358e139ef14f",
+        "android_client_info": {
+          "package_name": "com.example.farmersmarketflutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCQEK1HPuwu2nmOADczc3QmS9MxJYqi-sc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
