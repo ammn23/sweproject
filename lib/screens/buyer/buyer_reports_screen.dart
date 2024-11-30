@@ -22,8 +22,9 @@ class _BuyerReportsScreenState extends State<BuyerReportsScreen> {
     _fetchBuyerReport();
   }
 
+  // Fetch Buyer Report
   Future<void> _fetchBuyerReport() async {
-    final apiUrl = 'https://your-api-url.com/reports?userId=${widget.userId}';
+    final apiUrl = 'https://your-api-url.com/reports/buyer?userId=${widget.userId}';
 
     try {
       final response = await http.get(Uri.parse(apiUrl));
@@ -34,7 +35,7 @@ class _BuyerReportsScreenState extends State<BuyerReportsScreen> {
         });
       } else {
         setState(() {
-          _errorMessage = 'Failed to load report.';
+          _errorMessage = 'Failed to load buyer report.';
           _isLoading = false;
         });
       }
@@ -44,6 +45,14 @@ class _BuyerReportsScreenState extends State<BuyerReportsScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  // Function to simulate report download
+  void _downloadReport() {
+    // Placeholder for download logic
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Downloading Buyer Report...')),
+    );
   }
 
   @override
@@ -56,14 +65,28 @@ class _BuyerReportsScreenState extends State<BuyerReportsScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage.isNotEmpty
               ? Center(child: Text(_errorMessage))
-              : Center(
+              : Padding(
+                  padding: const EdgeInsets.all(16.0),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Top Product: ${_reportData['topProduct'] ?? 'N/A'}'),
+                      const Text('Buyer Purchase Trends', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 10),
+                      Text('Total Purchases: ${_reportData['totalPurchases'] ?? 'N/A'}'),
                       const SizedBox(height: 20),
-                      Text(
-                          'Total Purchases: ${_reportData['totalPurchases'] ?? 'N/A'}'),
+                      Text('Total Spent: \$${_reportData['totalSpent'] ?? 'N/A'}'),
+                      const SizedBox(height: 20),
+                      Text('Preferred Products:'),
+                      for (var product in _reportData['preferredProducts'] ?? [])
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 5),
+                          child: Text('- ${product['productName']}'),
+                        ),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: _downloadReport,
+                        child: const Text('Download Report'),
+                      ),
                     ],
                   ),
                 ),
