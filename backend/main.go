@@ -934,6 +934,84 @@ func updateProductInfo(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+func getFarmInfo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Invalid request method. Use GET.", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract farmId from the URL
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 3 || pathParts[len(pathParts)-1] == "" {
+		http.Error(w, "farmId is required in the URL path", http.StatusBadRequest)
+		return
+	}
+
+	farmId, err := strconv.Atoi(pathParts[len(pathParts)-1])
+	if err != nil {
+		http.Error(w, "Invalid farmId. It must be an integer.", http.StatusBadRequest)
+		return
+	}
+
+	// Query to fetch farm details
+	var farmName, location string
+	var size float64
+	farmQuery := `
+		SELECT name, size, location 
+		FROM farm 
+		WHERE farmid = $1
+	`
+	err = db.QueryRow(farmQuery, farmId).Scan(&farmName, &size, &location)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Farm not found", http.StatusNotFound)
+		} else {
+			http.Error(w, "Failed to fetch farm details", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Query to fetch inventory items (resources) for the farm
+	resourceQuery := `
+		SELECT name, quantity 
+		FROM inventory_item 
+		WHERE farmid = $1
+	`
+	rows, err := db.Query(resourceQuery, farmId)
+	if err != nil {
+		http.Error(w, "Failed to fetch farm resources", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	// Collect resources
+	resources := []map[string]interface{}{}
+	for rows.Next() {
+		var resourceName string
+		var quantity int
+		if err := rows.Scan(&resourceName, &quantity); err != nil {
+			http.Error(w, "Error reading resource data", http.StatusInternalServerError)
+			return
+		}
+		resources = append(resources, map[string]interface{}{
+			"name":     resourceName,
+			"quantity": quantity,
+		})
+	}
+
+	// Construct the response
+	response := map[string]interface{}{
+		"farm_name": farmName,
+		"size":      size,
+		"location":  location,
+		"resources": resources,
+	}
+
+	// Send the response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 func main() {
 	var err error
 	db, err = initDB()
@@ -966,6 +1044,8 @@ func main() {
 
 	http.HandleFunc("/get_product_info/", getProductInfo)
 	http.HandleFunc("/update_product_info/", updateProductInfo)
+
+	http.HandleFunc("get_farm_info/", getFarmInfo)
 
 	fmt.Println("Server is running at http://localhost:8080")
 	log.Println("Server started on port 8080")
