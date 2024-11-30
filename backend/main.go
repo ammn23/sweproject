@@ -748,7 +748,104 @@ func deleteProduct(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "Product deleted successfully")
 }
 
-func updateProductInfoHandler(w http.ResponseWriter, r *http.Request) {
+func getProductInfo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Invalid request method. Use GET.", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract productID from the URL
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 2 || pathParts[len(pathParts)-1] == "" {
+		http.Error(w, "productID is required in the URL path", http.StatusBadRequest)
+		return
+	}
+
+	productID, err := strconv.Atoi(pathParts[len(pathParts)-1])
+	if err != nil {
+		log.Printf("Invalid productID: %v", err)
+		http.Error(w, "productID must be a valid integer", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("Received productID: %d", productID)
+
+	// Initialize response variables
+	var productName, category, description string
+	var price float32
+	var quantity int
+	var imageUrls []string
+
+	// Fetch product details from the "product" table
+	productQuery := `
+		SELECT name, category, price, quantity, description 
+		FROM product 
+		WHERE productid = $1`
+	row := db.QueryRow(productQuery, productID)
+	err = row.Scan(&productName, &category, &price, &quantity, &description)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Product not found", http.StatusNotFound)
+		} else {
+			log.Printf("Error querying product: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Fetch image URLs from the "pimage" table
+	imageQuery := `
+		SELECT image_url 
+		FROM pimage 
+		WHERE productid = $1`
+	rows, err := db.Query(imageQuery, productID)
+	if err != nil {
+		log.Printf("Error querying images: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	// Collect image URLs
+	for rows.Next() {
+		var imageUrl string
+		if err := rows.Scan(&imageUrl); err != nil {
+			log.Printf("Error scanning image URL: %v", err)
+			continue
+		}
+		imageUrls = append(imageUrls, imageUrl)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Printf("Error iterating image rows: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Prepare the response JSON
+	response := map[string]interface{}{
+		"name":        productName,
+		"category":    category,
+		"price":       price,
+		"quantity":    quantity,
+		"description": description,
+		"images":      imageUrls,
+	}
+
+	// Send the response as JSON
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding JSON response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+func updateProductInfo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Invalid request method. Use PUT.", http.StatusMethodNotAllowed)
+		return
+	}
+
 	// Extract productId from the URL
 	productIdStr := r.URL.Path[len("/update_product_info/"):]
 	productId, err := strconv.Atoi(productIdStr)
@@ -765,15 +862,68 @@ func updateProductInfoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update the product in the database
-	query := `
+	// Start a transaction to ensure atomicity
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("Error starting transaction: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
+	}()
+
+	// Update the product in the product table
+	productUpdateQuery := `
 		UPDATE product 
 		SET name = $1, category = $2, price = $3, quantity = $4, description = $5 
 		WHERE productid = $6
 	`
-	_, err = db.Exec(query, product.Name, product.Category, product.Price, product.Quantity, product.Description, productId)
+	_, err = tx.Exec(productUpdateQuery, product.Name, product.Category, product.Price, product.Quantity, product.Description, productId)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to update product: %v", err), http.StatusInternalServerError)
+		tx.Rollback()
+		log.Printf("Error updating product: %v", err)
+		http.Error(w, "Failed to update product", http.StatusInternalServerError)
+		return
+	}
+
+	// If new images are provided, update the pimage table
+	if len(product.Images) > 0 {
+		// Delete existing images for the product
+		deleteImagesQuery := `
+			DELETE FROM pimage WHERE productid = $1
+		`
+		_, err = tx.Exec(deleteImagesQuery, productId)
+		if err != nil {
+			tx.Rollback()
+			log.Printf("Error deleting existing images: %v", err)
+			http.Error(w, "Failed to update product images", http.StatusInternalServerError)
+			return
+		}
+
+		// Insert the new images
+		imageInsertQuery := `
+			INSERT INTO pimage (productid, image_url) VALUES ($1, $2)
+		`
+		for _, imageUrl := range product.Images {
+			_, err = tx.Exec(imageInsertQuery, productId, imageUrl)
+			if err != nil {
+				tx.Rollback()
+				log.Printf("Error inserting new image: %v", err)
+				http.Error(w, "Failed to update product images", http.StatusInternalServerError)
+				return
+			}
+		}
+	}
+
+	// Commit the transaction
+	if err = tx.Commit(); err != nil {
+		log.Printf("Error committing transaction: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
@@ -814,7 +964,8 @@ func main() {
 	http.HandleFunc("/farmer_products/", farmerProducts)
 	http.HandleFunc("/delete_product/", deleteProduct)
 
-	http.HandleFunc("/update_product_info/", updateProductInfoHandler)
+	http.HandleFunc("/get_product_info/", getProductInfo)
+	http.HandleFunc("/update_product_info/", updateProductInfo)
 
 	fmt.Println("Server is running at http://localhost:8080")
 	log.Println("Server started on port 8080")
