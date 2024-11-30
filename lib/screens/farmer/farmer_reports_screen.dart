@@ -2,94 +2,76 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-class FarmerReportsScreen extends StatelessWidget {
-  Future<Map<String, dynamic>> _fetchSalesReport() async {
-    try {
-      final response = await http.get(
-        Uri.parse('https://your-api-url.com/reports/farmer/sales?farmerId=8'),
-      );
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else {
-        throw Exception('Failed to load sales report');
-      }
-    } catch (e) {
-      throw Exception('Error: $e');
-    }
+class FarmerReportsScreen extends StatefulWidget {
+  final int userId;
+
+  const FarmerReportsScreen({required this.userId, super.key});
+
+  @override
+  State<FarmerReportsScreen> createState() => _FarmerReportsScreenState();
+}
+
+class _FarmerReportsScreenState extends State<FarmerReportsScreen> {
+  bool _isLoading = true;
+  String _errorMessage = '';
+  Map<String, dynamic> _salesReportData = {};
+  Map<String, dynamic> _inventoryReportData = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchReports();
   }
 
-  Future<Map<String, dynamic>> _fetchInventoryReport() async {
+  Future<void> _fetchReports() async {
+    final salesApiUrl = 'https://your-api-url.com/reports/farmer/sales?userId=${widget.userId}';
+    final inventoryApiUrl = 'https://your-api-url.com/reports/farmer/inventory?userId=${widget.userId}';
+
     try {
-      final response = await http.get(
-        Uri.parse('https://your-api-url.com/reports/farmer/inventory?farmerId=FARMER_ID'),
-      );
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
+      final salesResponse = await http.get(Uri.parse(salesApiUrl));
+      final inventoryResponse = await http.get(Uri.parse(inventoryApiUrl));
+
+      if (salesResponse.statusCode == 200 && inventoryResponse.statusCode == 200) {
+        setState(() {
+          _salesReportData = json.decode(salesResponse.body);
+          _inventoryReportData = json.decode(inventoryResponse.body);
+          _isLoading = false;
+        });
       } else {
-        throw Exception('Failed to load inventory report');
+        setState(() {
+          _errorMessage = 'Failed to load reports.';
+          _isLoading = false;
+        });
       }
     } catch (e) {
-      throw Exception('Error: $e');
+      setState(() {
+        _errorMessage = 'Error fetching reports: $e';
+        _isLoading = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text('Farmer Reports'),
-          bottom: TabBar(
-            tabs: [
-              Tab(icon: Icon(Icons.bar_chart), text: 'Sales'),
-              Tab(icon: Icon(Icons.inventory), text: 'Inventory'),
-            ],
-          ),
-        ),
-        body: TabBarView(
-          children: [
-            _buildSalesReports(context),
-            _buildInventoryReports(context),
-          ],
-        ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Farmer Reports'),
       ),
-    );
-  }
-
-  Widget _buildSalesReports(BuildContext context) {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _fetchSalesReport(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator());
-        } else if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        } else {
-          final data = snapshot.data!;
-          return Center(
-            child: Text('Total Sales: ${data['totalSales']}'),
-          );
-        }
-      },
-    );
-  }
-
-  Widget _buildInventoryReports(BuildContext context) {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _fetchInventoryReport(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator());
-        } else if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        } else {
-          final data = snapshot.data!;
-          return Center(
-            child: Text('Low Stock Alerts: ${data['lowStockCount']} items'),
-          );
-        }
-      },
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage.isNotEmpty
+              ? Center(child: Text(_errorMessage))
+              : SingleChildScrollView(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 20),
+                      Text('Total Sales: ${_salesReportData['totalSales'] ?? 'N/A'}'),
+                      const SizedBox(height: 20),
+                      Text('Low Stock Alerts: ${_inventoryReportData['lowStockCount'] ?? 'N/A'} items'),
+                    ],
+                  ),
+                ),
     );
   }
 }
