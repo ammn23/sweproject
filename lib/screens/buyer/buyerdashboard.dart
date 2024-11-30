@@ -58,15 +58,17 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
         context,
         MaterialPageRoute(
           builder: (context) => BuyerProductListingPage(
-              userId: widget.userId, name: widget.name), // Replace with your product listing class
+              userId: widget.userId,
+              name: widget.name), // Replace with your product listing class
         ),
       );
     } else if (index == 2) {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) =>
-              CartPage(userId: widget.userId,name: widget.name), // Replace with your cart class
+          builder: (context) => CartPage(
+              userId: widget.userId,
+              name: widget.name), // Replace with your cart class
         ),
       );
     } else if (index == 3) {
@@ -147,11 +149,13 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Buyer Dashboard')),
+      appBar: AppBar(title: const Text('Buyer Dashboard'),automaticallyImplyLeading: false,),
       body: _getPage(_selectedIndex),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.dashboard),
