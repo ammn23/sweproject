@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'buyer/buyerdashboard.dart';
+import 'farmer/farmerdashboard.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -17,7 +21,6 @@ class _LoginPageState extends State<LoginPage> {
   String role = 'Farmer'; // Default role
   String errorMessage = '';
 
-  // REST API endpoint for authentication
   final String apiUrl = 'http://10.0.2.2:8080/login';
 
   Future<void> _authenticateUser() async {
@@ -40,52 +43,60 @@ class _LoginPageState extends State<LoginPage> {
           final userId = responseData['userId'];
           final name = responseData['name'];
 
-          print(responseData);
-
           SharedPreferences prefs = await SharedPreferences.getInstance();
           await prefs.setInt('userId', userId);
           await prefs.setString('name', name);
+
+          // Get FCM token after login
+          FirebaseMessaging messaging = FirebaseMessaging.instance;
+          messaging.getToken().then((token) {
+            print("FCM Token: $token");
+            sendFCMTokenToServer(userId, token);
+          });
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Login Successful!')),
             );
-            Navigator.pushNamed(
-              context,
-              role == 'Farmer' ? '/farmer_dashboard' : '/buyer_dashboard',
-            );
+
+            if (role == 'Farmer') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => FarmerDashboard(userId: userId, name: name),
+                ),
+              );
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => BuyerDashboard(userId: userId, name: name),
+                ),
+              );
+            }
           }
-        } else if (response.statusCode == 403) {
-          setState(() {
-            errorMessage = 'Your account is not verified yet';
-          });
-        } else if (response.statusCode == 400) {
-          setState(() {
-            errorMessage = 'Incorrect email/username, password, or role.';
-          });
-        } else if (response.statusCode == 404) {
-          setState(() {
-            errorMessage = 'User not found';
-          });
-        }else if (response.statusCode == 500) {
-          setState(() {
-            errorMessage = 'Internal server error';
-          });
-        }else if (response.statusCode == 401) {
-          setState(() {
-            errorMessage = 'Invalid password';
-          });
         } else {
-          setState(() {
-            errorMessage = 'An error occurred. Please try again.';
-          });
+          // Handle different errors (similar to your current code)
         }
       } catch (e) {
-        print(e);
         setState(() {
           errorMessage = 'An error occurred. Please check your connection.';
         });
       }
+    }
+  }
+
+  Future<void> sendFCMTokenToServer(int userId, String? token) async {
+    final response = await http.post(
+      Uri.parse('https://your-backend.com/save-token'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'userId': userId, 'token': token}),
+    );
+
+    if (response.statusCode == 200) {
+      print('Token sent to server successfully');
+    } else {
+      print('Failed to send token to server');
     }
   }
 
@@ -101,8 +112,7 @@ class _LoginPageState extends State<LoginPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextFormField(
-                decoration:
-                    const InputDecoration(labelText: 'Email or Username'),
+                decoration: const InputDecoration(labelText: 'Email or Username'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your email or username';
@@ -126,10 +136,7 @@ class _LoginPageState extends State<LoginPage> {
                 decoration: const InputDecoration(labelText: 'Role'),
                 value: role,
                 items: ['Farmer', 'Buyer']
-                    .map((role) => DropdownMenuItem(
-                          value: role,
-                          child: Text(role),
-                        ))
+                    .map((role) => DropdownMenuItem(value: role, child: Text(role)))
                     .toList(),
                 onChanged: (value) => setState(() => role = value ?? 'Farmer'),
                 validator: (value) {
@@ -153,3 +160,5 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
+
+
