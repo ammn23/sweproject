@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'buyer/buyerdashboard.dart';
 import 'farmer/farmerdashboard.dart';
+import 'package:farmersmarketflutter/screens/farmer/mainnavigation.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -43,9 +44,6 @@ class _LoginPageState extends State<LoginPage> {
           final userId = responseData['userId'];
           final name = responseData['name'];
 
-          SharedPreferences prefs = await SharedPreferences.getInstance();
-          await prefs.setInt('userId', userId);
-          await prefs.setString('name', name);
 
           // Get FCM token after login
           FirebaseMessaging messaging = FirebaseMessaging.instance;
@@ -60,10 +58,11 @@ class _LoginPageState extends State<LoginPage> {
             );
 
             if (role == 'Farmer') {
-              Navigator.push(
+              Navigator.of(context).pop();
+              Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => FarmerDashboard(userId: userId, name: name),
+                  builder: (context) => MainNavigationPage(userId: userId, name: name),
                 ),
               );
             } else {

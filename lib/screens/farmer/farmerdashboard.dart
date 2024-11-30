@@ -22,6 +22,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
   List<dynamic> farms = []; // List to hold multiple farms
   bool _isLoading = true;
   String errorMessage = '';
+  
 
   @override
   void initState() {
@@ -37,7 +38,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
         'http://10.0.2.2:8080/farmer_dashboard'; // Replace with your API endpoint
 
     try {
-      final response = await http.get(Uri.parse('$apiUrl/$userId'));
+      final response = await http.get(Uri.parse('$apiUrl/${widget.userId}'));
       if (response.statusCode == 200) {
         final List<dynamic> data =
             jsonDecode(response.body); // Decode as a List
@@ -45,6 +46,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
         if (data.isNotEmpty) {
           setState(() {
             farms = data; // Store the list of farms
+            _isLoading = false;
           });
         } else {
           setState(() {
@@ -62,6 +64,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
       });
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +87,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                           // Navigate to the NewPage
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => (ProductListPage(userId: userId))),
+                            MaterialPageRoute(builder: (context) => (ProductListPage(userId: userId, name: name,))),
                           );
                         },
                         child: const Text('Go to New Page'),

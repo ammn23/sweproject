@@ -9,8 +9,9 @@ import 'package:path/path.dart';
 
 class PlCreatePage extends StatefulWidget {
   final int userId;
+  final String name;
 
-  const PlCreatePage({required this.userId, super.key});
+  const PlCreatePage({required this.userId, super.key, required this.name});
 
   @override
   State<PlCreatePage> createState() => _PlEditPageState();
