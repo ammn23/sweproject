@@ -4,10 +4,12 @@ import 'dart:convert';
 
 class ChatScreen extends StatefulWidget {
   final int chatId;
+  final int userId;
 
   const ChatScreen({
     super.key,
     required this.chatId,
+    required this.userId,
   });
 
   @override
@@ -45,7 +47,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _sendMessage(String text) async {
     setState(() {
-      _messages.add({'sender': 'USER_ID', 'message': text});
+      _messages.add({'sender': widget.userId.toString(), 'message': text});
     });
     _messageController.clear();
 
@@ -53,7 +55,7 @@ class _ChatScreenState extends State<ChatScreen> {
       await http.post(
         Uri.parse('https://your-api-url.com/chats/${widget.chatId}/messages'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({'sender': 'USER_ID', 'message': text}),
+        body: json.encode({'sender': widget.userId.toString(), 'message': text}),
       );
     } catch (e) {
       print(e);
@@ -73,7 +75,7 @@ class _ChatScreenState extends State<ChatScreen> {
               itemCount: _messages.length,
               itemBuilder: (context, index) {
                 final message = _messages[index];
-                final isMe = message['sender'] == 'USER_ID';
+                final isMe = message['sender'] == widget.userId.toString();
                 return Align(
                   alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
