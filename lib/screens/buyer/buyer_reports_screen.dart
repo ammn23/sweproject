@@ -2,19 +2,47 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-class BuyerReportsScreen extends StatelessWidget {
-  Future<Map<String, dynamic>> _fetchBuyerReport() async {
+class BuyerReportsScreen extends StatefulWidget {
+  final int userId;
+
+  const BuyerReportsScreen({required this.userId, super.key});
+
+  @override
+  State<BuyerReportsScreen> createState() => _BuyerReportsScreenState();
+}
+
+class _BuyerReportsScreenState extends State<BuyerReportsScreen> {
+  bool _isLoading = true;
+  String _errorMessage = '';
+  Map<String, dynamic> _reportData = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchBuyerReport();
+  }
+
+  Future<void> _fetchBuyerReport() async {
+    final apiUrl = 'https://your-api-url.com/reports?userId=${widget.userId}';
+
     try {
-      final response = await http.get(
-        Uri.parse('https://your-api-url.com/reports?userId=7'),
-      );
+      final response = await http.get(Uri.parse(apiUrl));
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        setState(() {
+          _reportData = json.decode(response.body);
+          _isLoading = false;
+        });
       } else {
-        throw Exception('Failed to load buyer report');
+        setState(() {
+          _errorMessage = 'Failed to load report.';
+          _isLoading = false;
+        });
       }
     } catch (e) {
-      throw Exception('Error: $e');
+      setState(() {
+        _errorMessage = 'Error fetching report: $e';
+        _isLoading = false;
+      });
     }
   }
 
@@ -22,30 +50,23 @@ class BuyerReportsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Buyer Reports'),
+        title: const Text('Buyer Reports'),
       ),
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _fetchBuyerReport(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else {
-            final data = snapshot.data!;
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('Top Product: ${data['topProduct']}'),
-                  SizedBox(height: 20),
-                  Text('Total Purchases: ${data['totalPurchases']}'),
-                ],
-              ),
-            );
-          }
-        },
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage.isNotEmpty
+              ? Center(child: Text(_errorMessage))
+              : Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('Top Product: ${_reportData['topProduct'] ?? 'N/A'}'),
+                      const SizedBox(height: 20),
+                      Text(
+                          'Total Purchases: ${_reportData['totalPurchases'] ?? 'N/A'}'),
+                    ],
+                  ),
+                ),
     );
   }
 }
