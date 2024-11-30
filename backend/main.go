@@ -980,7 +980,7 @@ func getFarmInfo(w http.ResponseWriter, r *http.Request) {
 
 	// Query to fetch inventory items (resources) for the farm
 	resourceQuery := `
-		SELECT name, quantity 
+		SELECT name, type, quantity 
 		FROM inventory_item 
 		WHERE farmid = $1
 	`
@@ -996,8 +996,9 @@ func getFarmInfo(w http.ResponseWriter, r *http.Request) {
 	resources := []map[string]interface{}{}
 	for rows.Next() {
 		var resourceName string
+		var resourceType string
 		var quantity int
-		if err := rows.Scan(&resourceName, &quantity); err != nil {
+		if err := rows.Scan(&resourceName, &resourceType, &quantity); err != nil {
 			log.Printf("Error scanning inventory item: %v", err)
 			http.Error(w, "Error reading resource data", http.StatusInternalServerError)
 			return
