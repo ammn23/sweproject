@@ -20,33 +20,53 @@ class _FarmerReportsScreenState extends State<FarmerReportsScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchReports();
+    _fetchSalesReport();
+    _fetchInventoryReport();
   }
 
-  Future<void> _fetchReports() async {
-    final salesApiUrl = 'https://your-api-url.com/reports/farmer/sales?userId=${widget.userId}';
-    final inventoryApiUrl = 'https://your-api-url.com/reports/farmer/inventory?userId=${widget.userId}';
+  // Fetch Sales Report
+  Future<void> _fetchSalesReport() async {
+    final apiUrl = 'https://your-api-url.com/reports/farmer/sales?userId=${widget.userId}';
 
     try {
-      final salesResponse = await http.get(Uri.parse(salesApiUrl));
-      final inventoryResponse = await http.get(Uri.parse(inventoryApiUrl));
-
-      if (salesResponse.statusCode == 200 && inventoryResponse.statusCode == 200) {
+      final response = await http.get(Uri.parse(apiUrl));
+      if (response.statusCode == 200) {
         setState(() {
-          _salesReportData = json.decode(salesResponse.body);
-          _inventoryReportData = json.decode(inventoryResponse.body);
+          _salesReportData = json.decode(response.body);
           _isLoading = false;
         });
       } else {
         setState(() {
-          _errorMessage = 'Failed to load reports.';
+          _errorMessage = 'Failed to load sales report.';
           _isLoading = false;
         });
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Error fetching reports: $e';
+        _errorMessage = 'Error fetching sales report: $e';
         _isLoading = false;
+      });
+    }
+  }
+
+  // Fetch Inventory Report
+  Future<void> _fetchInventoryReport() async {
+    final apiUrl = 'https://your-api-url.com/reports/farmer/inventory?userId=${widget.userId}';
+
+    try {
+      final response = await http.get(Uri.parse(apiUrl));
+      if (response.statusCode == 200) {
+        setState(() {
+          _inventoryReportData = json.decode(response.body);
+        });
+      } else {
+        setState(() {
+          _errorMessage = 'Failed to load inventory report.';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error fetching inventory report: $e';
       });
     }
   }
@@ -61,17 +81,66 @@ class _FarmerReportsScreenState extends State<FarmerReportsScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage.isNotEmpty
               ? Center(child: Text(_errorMessage))
-              : SingleChildScrollView(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 20),
-                      Text('Total Sales: ${_salesReportData['totalSales'] ?? 'N/A'}'),
-                      const SizedBox(height: 20),
-                      Text('Low Stock Alerts: ${_inventoryReportData['lowStockCount'] ?? 'N/A'} items'),
-                    ],
-                  ),
+              : Column(
+                  children: [
+                    _buildSalesReportSection(),
+                    _buildInventoryReportSection(),
+                  ],
                 ),
+    );
+  }
+
+  // Sales Report Section
+  Widget _buildSalesReportSection() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Sales Report', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          Text('Total Sales: ${_salesReportData['totalSales'] ?? 'N/A'}'),
+          const SizedBox(height: 10),
+          ElevatedButton(
+            onPressed: () {
+              // Trigger download report functionality
+              _downloadReport('sales');
+            },
+            child: const Text('Download Sales Report'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Inventory Report Section
+  Widget _buildInventoryReportSection() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Inventory Report', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          Text('Low Stock Alerts: ${_inventoryReportData['lowStockCount'] ?? 'N/A'} items'),
+          const SizedBox(height: 10),
+          ElevatedButton(
+            onPressed: () {
+              // Trigger download report functionality
+              _downloadReport('inventory');
+            },
+            child: const Text('Download Inventory Report'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Function to simulate report download
+  void _downloadReport(String reportType) {
+    // Placeholder for download logic
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Downloading $reportType report...')),
     );
   }
 }
