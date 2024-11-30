@@ -1005,6 +1005,7 @@ func getFarmInfo(w http.ResponseWriter, r *http.Request) {
 		}
 		resources = append(resources, map[string]interface{}{
 			"name":     resourceName,
+			"type":     resourceType,
 			"quantity": quantity,
 		})
 	}
