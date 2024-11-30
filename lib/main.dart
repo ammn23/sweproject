@@ -67,8 +67,9 @@ class FarmersMarketApp extends StatelessWidget {
     return MaterialApp(
       title: 'Farmers Market App',
       theme: ThemeData(primarySwatch: Colors.green),
-      initialRoute: '/login',  // Start with login page
+      initialRoute: '/',  // Start with login page
       routes: {
+        '/': (context) => const HomePage(),
         '/login': (context) => const LoginPage(),
         '/farmerregistration': (context) => const FarmerRegistrationPage(),
         '/buyerregistration': (context) => const BuyerRegistrationPage(),
