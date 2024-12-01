@@ -137,21 +137,28 @@ class HomePage extends StatelessWidget {
 
             ElevatedButton(
               onPressed: () {
-                Navigator.pushNamed(context, '/chatscreen'); // Navigate to LoginPage
+                Navigator.pushNamed(context, '/farmer_chat_list'); 
               },
-              child: const Text('Chatscreen'),
+              child: const Text('Farmer chats'),
+            ),
+
+             ElevatedButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/buyer_chat_list'); 
+              },
+              child: const Text('Buyer chats'),
             ),
 
             ElevatedButton(
               onPressed: () {
-                Navigator.pushNamed(context, '/farmer_reports_screen'); // Navigate to LoginPage
+                Navigator.pushNamed(context, '/farmer_reports_screen'); 
               },
               child: const Text('Farmer reports screen'),
             ),
             
             ElevatedButton(
               onPressed: () {
-                Navigator.pushNamed(context, '/buyer_reports_screen'); // Navigate to LoginPage
+                Navigator.pushNamed(context, '/buyer_reports_screen'); 
               },
               child: const Text('Buyer reports screen'),
             ),
