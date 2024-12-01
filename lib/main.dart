@@ -79,8 +79,8 @@ class FarmersMarketApp extends StatelessWidget {
         '/buyerregistration': (context) => const BuyerRegistrationPage(),
         '/chatscreen':(context)=> const ChatScreen(chatId: 3,userId:7) ,
         '/chats_list_screen':(context)=> ChatsListScreen() ,
-        '/farmer_reports_screen':(context)=>FarmerReportsScreen(),
-        '/farmer_reports_screen':(context)=>BuyerReportsScreen(),
+        '/farmer_reports_screen':(context)=>FarmerReportsScreen(userId:7),
+        '/farmer_reports_screen':(context)=>BuyerReportsScreen(userId:7),
       },
     );
   }
