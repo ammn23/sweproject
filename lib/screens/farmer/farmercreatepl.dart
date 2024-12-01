@@ -63,6 +63,10 @@ class _PlCreatePageState extends State<PlCreatePage> {
         if (data.isNotEmpty) {
           setState(() {
             farms = data; // Store the list of farms
+            if (farms.length == 1) {
+              selectedFarm =
+                  farms[0]['farmid']; // Automatically select the only farm
+            }
             _isLoading = false;
           });
         } else {
@@ -95,6 +99,8 @@ class _PlCreatePageState extends State<PlCreatePage> {
       'images': await _uploadNewImages(),
       'farmid': selectedFarm
     };
+    print(newData);
+    print(selectedFarm);
 
     setState(() {
       _isLoading = true;
@@ -233,7 +239,7 @@ class _PlCreatePageState extends State<PlCreatePage> {
                           child: const Text('Add Image'),
                         ),
                         const SizedBox(height: 20),
-                        
+
                         // Product Name
                         TextFormField(
                           decoration: const InputDecoration(
@@ -246,7 +252,7 @@ class _PlCreatePageState extends State<PlCreatePage> {
                               : null,
                         ),
                         const SizedBox(height: 20),
-                        
+
                         // Category Dropdown
                         DropdownButtonFormField<String>(
                           decoration: const InputDecoration(
@@ -319,19 +325,23 @@ class _PlCreatePageState extends State<PlCreatePage> {
                           ),
                           items: farms.map((farm) {
                             return DropdownMenuItem<int>(
-                              value: farm['id'],
-                              child: Text(farm['name']),
+                              value: farm['farmid'], // Set value to farm ID as int
+                              child: Text(farm['name']), // Display farm name
                             );
                           }).toList(),
                           onChanged: (value) {
                             setState(() {
-                              selectedFarm = value;
+                              selectedFarm = value; // Update selected farm ID
                             });
                           },
-                          validator: (value) => value == null
-                              ? 'Required'
-                              : null,
+                          validator: (value) {
+                            if (value == null && farms.length > 1) {
+                              return 'Required'; // Validation when multiple farms exist
+                            }
+                            return null; // No validation needed if farm is preselected
+                          },
                         ),
+
                         const SizedBox(height: 20),
 
                         // Description
