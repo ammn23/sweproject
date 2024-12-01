@@ -317,7 +317,7 @@ class _FarmInfoPageState extends State<FarmInfoPage> {
                                     _farmData!['resources'][index];
                                 return ListTile(
                                   title: Text(
-                                      '${resource['type']}'),
+                                       '${resource['type']}: ${resource['name']}'),
                                   subtitle: Text(
                                       'Quantity: ${resource['quantity']} '),
                                 );

@@ -82,16 +82,6 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                           style: const TextStyle(fontSize: 20)),
                       const SizedBox(height: 20),
 
-                      ElevatedButton(
-                        onPressed: () {
-                          // Navigate to the NewPage
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => (ProductListPage(userId: userId, name: name,))),
-                          );
-                        },
-                        child: const Text('Go to New Page'),
-                      ),
 
                       // Heading for Farmer Info
                       const Text(
