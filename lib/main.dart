@@ -80,7 +80,7 @@ class FarmersMarketApp extends StatelessWidget {
         '/chatscreen':(context)=> const ChatScreen(chatId: 3,userId:7) ,
         '/chats_list_screen':(context)=> ChatsListScreen() ,
         '/farmer_reports_screen':(context)=>FarmerReportsScreen(userId:7),
-        '/farmer_reports_screen':(context)=>BuyerReportsScreen(userId:7),
+        '/buyer_reports_screen':(context)=>BuyerReportsScreen(userId:7),
       },
     );
   }
