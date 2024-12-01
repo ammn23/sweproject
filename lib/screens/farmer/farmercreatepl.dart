@@ -28,6 +28,8 @@ class _PlCreatePageState extends State<PlCreatePage> {
   List<XFile> _newImages = [];
   bool _isLoading = false;
   String _errorMessage = '';
+  List<dynamic> farms = [];
+  int? selectedFarm;
 
   final List<String> categories = [
     'Vegetables',
@@ -44,7 +46,40 @@ class _PlCreatePageState extends State<PlCreatePage> {
   @override
   void initState() {
     super.initState();
+    _fetchFarmData();
     _authenticateWithGoogleDrive();
+  }
+
+  Future<void> _fetchFarmData() async {
+    const String apiUrl =
+        'http://10.0.2.2:8080/farmer_dashboard'; // Replace with your API endpoint
+
+    try {
+      final response = await http.get(Uri.parse('$apiUrl/${widget.userId}'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data =
+            jsonDecode(response.body); // Decode as a List
+
+        if (data.isNotEmpty) {
+          setState(() {
+            farms = data; // Store the list of farms
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _errorMessage = 'No farm data found!';
+          });
+        }
+      } else {
+        setState(() {
+          _errorMessage = 'Failed to load farm data!';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error fetching farm data: $e';
+      });
+    }
   }
 
   Future<void> _createNewProduct() async {
@@ -58,6 +93,7 @@ class _PlCreatePageState extends State<PlCreatePage> {
       'quantity': quantity,
       'description': description,
       'images': await _uploadNewImages(),
+      'farmid': selectedFarm
     };
 
     setState(() {
@@ -157,12 +193,13 @@ class _PlCreatePageState extends State<PlCreatePage> {
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage.isNotEmpty
               ? Center(child: Text(_errorMessage))
-              : Padding(
+              : SingleChildScrollView(
                   padding: const EdgeInsets.all(16.0),
                   child: Form(
                     key: _formKey,
-                    child: ListView(
+                    child: Column(
                       children: [
+                        // Image picker and display images
                         SizedBox(
                           height: 200,
                           child: ListView.builder(
@@ -196,6 +233,8 @@ class _PlCreatePageState extends State<PlCreatePage> {
                           child: const Text('Add Image'),
                         ),
                         const SizedBox(height: 20),
+                        
+                        // Product Name
                         TextFormField(
                           decoration: const InputDecoration(
                             labelText: 'Product Name',
@@ -207,6 +246,8 @@ class _PlCreatePageState extends State<PlCreatePage> {
                               : null,
                         ),
                         const SizedBox(height: 20),
+                        
+                        // Category Dropdown
                         DropdownButtonFormField<String>(
                           decoration: const InputDecoration(
                             labelText: 'Category',
@@ -226,6 +267,8 @@ class _PlCreatePageState extends State<PlCreatePage> {
                               : null,
                         ),
                         const SizedBox(height: 20),
+
+                        // Price
                         TextFormField(
                           decoration: const InputDecoration(
                             labelText: 'Price',
@@ -245,6 +288,8 @@ class _PlCreatePageState extends State<PlCreatePage> {
                           },
                         ),
                         const SizedBox(height: 20),
+
+                        // Quantity
                         TextFormField(
                           decoration: const InputDecoration(
                             labelText: 'Quantity',
@@ -264,6 +309,32 @@ class _PlCreatePageState extends State<PlCreatePage> {
                           },
                         ),
                         const SizedBox(height: 20),
+
+                        // Farm Dropdown
+                        DropdownButtonFormField<int>(
+                          value: selectedFarm,
+                          decoration: const InputDecoration(
+                            labelText: 'Select Farm',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: farms.map((farm) {
+                            return DropdownMenuItem<int>(
+                              value: farm['id'],
+                              child: Text(farm['name']),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              selectedFarm = value;
+                            });
+                          },
+                          validator: (value) => value == null
+                              ? 'Required'
+                              : null,
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Description
                         TextFormField(
                           decoration: const InputDecoration(
                             labelText: 'Description',
@@ -272,6 +343,8 @@ class _PlCreatePageState extends State<PlCreatePage> {
                           onChanged: (value) => description = value,
                         ),
                         const SizedBox(height: 20),
+
+                        // Save Button
                         ElevatedButton(
                           onPressed: _createNewProduct,
                           child: const Text('Save Details'),
