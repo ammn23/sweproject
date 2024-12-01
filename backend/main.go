@@ -1173,7 +1173,7 @@ func createNewProduct(w http.ResponseWriter, r *http.Request) {
 
 	// Insert product data
 	productQuery := `INSERT INTO product (farmid, name, category, price, quantity, description, available) 
-                     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`
+                     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING productid`
 
 	var productID int64
 	err = tx.QueryRow(productQuery,
