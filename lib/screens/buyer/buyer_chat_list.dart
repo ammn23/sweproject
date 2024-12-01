@@ -17,6 +17,7 @@ class _BuyerChatsListScreenState extends State<BuyerChatsListScreen> {
 
   List<Map<String, dynamic>> _chats = [];
   bool _isLoading = true;
+  int _selectedIndex = 0;
 
   @override
   void initState() {
@@ -46,6 +47,23 @@ class _BuyerChatsListScreenState extends State<BuyerChatsListScreen> {
     }
   }
 
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    // Navigate to respective pages based on selected index
+    if (index == 0) {
+      // Current screen (Chats), no navigation needed
+    } else if (index == 1) {
+      Navigator.pushNamed(context, '/buyer_reports_screen', arguments: widget.userId);
+    } else if (index == 2) {
+      Navigator.pushNamed(context, '/buyer_product_listing', arguments: widget.userId);
+    } else if (index == 3) {
+      Navigator.pushNamed(context, '/cart', arguments: widget.userId);
+    }
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -75,6 +93,30 @@ class _BuyerChatsListScreenState extends State<BuyerChatsListScreen> {
             },
           );
         },
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat),
+            label: 'Chats',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.report),
+            label: 'Reports',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.store),
+            label: 'Products',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_cart),
+            label: 'Cart',
+          ),
+        ],
       ),
     );
   }
