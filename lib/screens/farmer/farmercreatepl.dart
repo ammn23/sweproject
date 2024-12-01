@@ -5,13 +5,15 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:googleapis/drive/v3.dart' as drive;
-import 'package:path/path.dart';
+import 'package:path/path.dart' as p;
+import 'package:flutter/material.dart';
 
 class PlCreatePage extends StatefulWidget {
   final int userId;
   final String name;
 
-  const PlCreatePage({required this.userId, super.key, required this.name});
+  const PlCreatePage({required this.userId, required this.name, Key? key})
+      : super(key: key);
 
   @override
   State<PlCreatePage> createState() => _PlCreatePageState();
@@ -51,29 +53,18 @@ class _PlCreatePageState extends State<PlCreatePage> {
   }
 
   Future<void> _fetchFarmData() async {
-    const String apiUrl =
-        'http://10.0.2.2:8080/farmer_dashboard'; // Replace with your API endpoint
+    const String apiUrl = 'http://10.0.2.2:8080/farmer_dashboard';
 
     try {
       final response = await http.get(Uri.parse('$apiUrl/${widget.userId}'));
       if (response.statusCode == 200) {
-        final List<dynamic> data =
-            jsonDecode(response.body); // Decode as a List
-
-        if (data.isNotEmpty) {
-          setState(() {
-            farms = data; // Store the list of farms
-            if (farms.length == 1) {
-              selectedFarm =
-                  farms[0]['farmid']; // Automatically select the only farm
-            }
-            _isLoading = false;
-          });
-        } else {
-          setState(() {
-            _errorMessage = 'No farm data found!';
-          });
-        }
+        final List<dynamic> data = jsonDecode(response.body);
+        setState(() {
+          farms = data;
+          if (farms.length == 1) {
+            selectedFarm = farms[0]['farmid'];
+          }
+        });
       } else {
         setState(() {
           _errorMessage = 'Failed to load farm data!';
@@ -89,6 +80,18 @@ class _PlCreatePageState extends State<PlCreatePage> {
   Future<void> _createNewProduct() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (productName == null ||
+        category == null ||
+        price == null ||
+        quantity == null ||
+        description == null ||
+        selectedFarm == null) {
+      setState(() {
+        _errorMessage = 'Please fill all the required fields.';
+      });
+      return;
+    }
+
     final apiUrl = 'http://10.0.2.2:8080/create_new_product/${widget.userId}';
     final newData = {
       'name': productName,
@@ -99,8 +102,6 @@ class _PlCreatePageState extends State<PlCreatePage> {
       'images': await _uploadNewImages(),
       'farmid': selectedFarm
     };
-    print(newData);
-    print(selectedFarm);
 
     setState(() {
       _isLoading = true;
@@ -115,10 +116,9 @@ class _PlCreatePageState extends State<PlCreatePage> {
       );
 
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context as BuildContext).showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Product created successfully!')),
         );
-        Navigator.pop(context as BuildContext);
       } else {
         setState(() {
           _errorMessage = 'Failed to create product!';
@@ -146,7 +146,9 @@ class _PlCreatePageState extends State<PlCreatePage> {
       final authClient = await clientViaUserConsent(clientId, _scopes, (url) {
         print('Please go to the following URL and grant access: $url');
       });
-      _driveApi = drive.DriveApi(authClient);
+      setState(() {
+        _driveApi = drive.DriveApi(authClient);
+      });
     } catch (e) {
       print('Error authenticating with Google Drive: $e');
     }
@@ -158,7 +160,7 @@ class _PlCreatePageState extends State<PlCreatePage> {
     List<String> uploadedUrls = [];
     for (XFile imageFile in _newImages) {
       final file = File(imageFile.path);
-      final fileName = basename(file.path);
+      final fileName = p.basename(file.path);
 
       var driveFile = drive.File()..name = fileName;
 
@@ -205,7 +207,6 @@ class _PlCreatePageState extends State<PlCreatePage> {
                     key: _formKey,
                     child: Column(
                       children: [
-                        // Image picker and display images
                         SizedBox(
                           height: 200,
                           child: ListView.builder(
@@ -239,21 +240,16 @@ class _PlCreatePageState extends State<PlCreatePage> {
                           child: const Text('Add Image'),
                         ),
                         const SizedBox(height: 20),
-
-                        // Product Name
                         TextFormField(
                           decoration: const InputDecoration(
                             labelText: 'Product Name',
                             border: OutlineInputBorder(),
                           ),
                           onChanged: (value) => productName = value,
-                          validator: (value) => value == null || value.isEmpty
-                              ? 'Required'
-                              : null,
+                          validator: (value) =>
+                              value == null || value.isEmpty ? 'Required' : null,
                         ),
                         const SizedBox(height: 20),
-
-                        // Category Dropdown
                         DropdownButtonFormField<String>(
                           decoration: const InputDecoration(
                             labelText: 'Category',
@@ -268,55 +264,50 @@ class _PlCreatePageState extends State<PlCreatePage> {
                           onChanged: (value) => setState(() {
                             category = value;
                           }),
-                          validator: (value) => value == null || value.isEmpty
-                              ? 'Required'
-                              : null,
+                          validator: (value) =>
+                              value == null ? 'Required' : null,
                         ),
                         const SizedBox(height: 20),
-
-                        // Price
                         TextFormField(
                           decoration: const InputDecoration(
                             labelText: 'Price',
                             border: OutlineInputBorder(),
                           ),
                           keyboardType: TextInputType.number,
-                          onChanged: (value) => price = double.tryParse(value),
+                          onChanged: (value) =>
+                              price = double.tryParse(value ?? ''),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Required';
                             }
                             final parsedValue = double.tryParse(value);
                             if (parsedValue == null || parsedValue < 0) {
-                              return 'Price must be a non-negative number';
+                              return 'Price must be non-negative';
                             }
                             return null;
                           },
                         ),
                         const SizedBox(height: 20),
-
-                        // Quantity
                         TextFormField(
                           decoration: const InputDecoration(
                             labelText: 'Quantity',
                             border: OutlineInputBorder(),
                           ),
                           keyboardType: TextInputType.number,
-                          onChanged: (value) => quantity = int.tryParse(value),
+                          onChanged: (value) =>
+                              quantity = int.tryParse(value ?? ''),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Required';
                             }
                             final parsedValue = int.tryParse(value);
                             if (parsedValue == null || parsedValue < 0) {
-                              return 'Quantity must be a non-negative number';
+                              return 'Quantity must be non-negative';
                             }
                             return null;
                           },
                         ),
                         const SizedBox(height: 20),
-
-                        // Farm Dropdown
                         DropdownButtonFormField<int>(
                           value: selectedFarm,
                           decoration: const InputDecoration(
@@ -325,39 +316,33 @@ class _PlCreatePageState extends State<PlCreatePage> {
                           ),
                           items: farms.map((farm) {
                             return DropdownMenuItem<int>(
-                              value: farm['farmid'], // Set value to farm ID as int
-                              child: Text(farm['name']), // Display farm name
+                              value: farm['farmid'],
+                              child: Text(farm['name']),
                             );
                           }).toList(),
                           onChanged: (value) {
                             setState(() {
-                              selectedFarm = value; // Update selected farm ID
+                              selectedFarm = value;
                             });
                           },
-                          validator: (value) {
-                            if (value == null && farms.length > 1) {
-                              return 'Required'; // Validation when multiple farms exist
-                            }
-                            return null; // No validation needed if farm is preselected
-                          },
+                          validator: (value) =>
+                              value == null ? 'Required' : null,
                         ),
-
                         const SizedBox(height: 20),
-
-                        // Description
                         TextFormField(
                           decoration: const InputDecoration(
                             labelText: 'Description',
                             border: OutlineInputBorder(),
                           ),
+                          maxLines: 3,
                           onChanged: (value) => description = value,
+                          validator: (value) =>
+                              value == null || value.isEmpty ? 'Required' : null,
                         ),
                         const SizedBox(height: 20),
-
-                        // Save Button
                         ElevatedButton(
                           onPressed: _createNewProduct,
-                          child: const Text('Save Details'),
+                          child: const Text('Create Product'),
                         ),
                       ],
                     ),
