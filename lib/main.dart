@@ -121,7 +121,7 @@ class HomePage extends StatelessWidget {
             const SizedBox(height: 20),
             const Text(
               'Already have an account?',
-              style: TextStyle(fontSize: 16),
+              style: TextStyle(fontSize: 16,fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
             ElevatedButton(

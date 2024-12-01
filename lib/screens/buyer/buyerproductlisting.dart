@@ -251,6 +251,7 @@ class _BuyerProductListingPageState extends State<BuyerProductListingPage> {
               },
             ),
       bottomNavigationBar: NavigationBar(
+        indicatorColor: Colors.blue,
         selectedIndex: 1, // Highlight Products
         onDestinationSelected: (index) {
           if (index == 0) {
