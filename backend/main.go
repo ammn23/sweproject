@@ -1123,20 +1123,36 @@ type NewProduct struct {
 
 func createNewProduct(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		log.Printf("Invalid request method. Use POST.", http.StatusMethodNotAllowed)
+		log.Printf("Invalid request method. Use POST. Status: %d", http.StatusMethodNotAllowed)
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
 
+	// Extract and validate user ID
 	userID := r.URL.Path[len("/create_new_product/"):]
 	if _, err := strconv.Atoi(userID); err != nil {
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
 
+	// Decode and validate new product
 	var newProduct NewProduct
 	if err := json.NewDecoder(r.Body).Decode(&newProduct); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate product details
+	if newProduct.Name == "" {
+		http.Error(w, "Product name is required", http.StatusBadRequest)
+		return
+	}
+	if newProduct.Price <= 0 {
+		http.Error(w, "Invalid price", http.StatusBadRequest)
+		return
+	}
+	if newProduct.Quantity < 0 {
+		http.Error(w, "Quantity cannot be negative", http.StatusBadRequest)
 		return
 	}
 
@@ -1148,22 +1164,30 @@ func createNewProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Ensure transaction is rolled back if not committed
+	defer func() {
+		if err := tx.Rollback(); err != nil && err != sql.ErrTxDone {
+			log.Printf("Transaction rollback error: %v", err)
+		}
+	}()
+
 	// Insert product data
 	productQuery := `INSERT INTO product (farmid, name, category, price, quantity, description, available) 
-					 VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	res, err := tx.Exec(productQuery, newProduct.FarmID, newProduct.Name, newProduct.Category,
-		newProduct.Price, newProduct.Quantity, newProduct.Description, newProduct.Quantity)
-	if err != nil {
-		tx.Rollback()
-		log.Printf("Failed to insert product: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
+                     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`
 
-	productID, err := res.LastInsertId()
+	var productID int64
+	err = tx.QueryRow(productQuery,
+		newProduct.FarmID,
+		newProduct.Name,
+		newProduct.Category,
+		newProduct.Price,
+		newProduct.Quantity,
+		newProduct.Description,
+		newProduct.Quantity,
+	).Scan(&productID)
+
 	if err != nil {
-		tx.Rollback()
-		log.Printf("Failed to retrieve last insert ID: %v", err)
+		log.Printf("Failed to insert product: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -1173,7 +1197,6 @@ func createNewProduct(w http.ResponseWriter, r *http.Request) {
 	for _, imageURL := range newProduct.Images {
 		_, err := tx.Exec(imageQuery, productID, imageURL)
 		if err != nil {
-			tx.Rollback()
 			log.Printf("Failed to insert product image: %v", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
@@ -1188,7 +1211,7 @@ func createNewProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Product created successfully")
+	fmt.Fprintf(w, "Product created successfully with ID: %d", productID)
 }
 
 func main() {
