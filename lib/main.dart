@@ -80,7 +80,7 @@ class FarmersMarketApp extends StatelessWidget {
         '/chatscreen':(context)=> const ChatScreen(chatId: 3,userId:7) ,
         '/chats_list_screen':(context)=> ChatsListScreen() ,
         '/farmer_reports_screen':(context)=>FarmerReportsScreen(userId:7),
-        '/buyer_reports_screen':(context)=>BuyerReportsScreen(userId:7),
+        '/buyer_reports_screen':(context)=>BuyerReportsScreen(userId:8),
       },
     );
   }
@@ -142,9 +142,16 @@ class HomePage extends StatelessWidget {
 
             ElevatedButton(
               onPressed: () {
-                Navigator.pushNamed(context, '/reports_screen'); // Navigate to LoginPage
+                Navigator.pushNamed(context, '/farmer_reports_screen'); // Navigate to LoginPage
               },
-              child: const Text('reports screen'),
+              child: const Text('Farmer reports screen'),
+            ),
+            
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/buyer_reports_screen'); // Navigate to LoginPage
+              },
+              child: const Text('Buyer reports screen'),
             ),
           ],
         ),
