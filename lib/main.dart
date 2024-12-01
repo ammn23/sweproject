@@ -8,7 +8,8 @@ import 'screens/farmer/farmerregistration.dart';  // Import FarmerRegistrationPa
 import 'screens/farmer/farmerdashboard.dart';  // Import FarmerDashboardPage
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/chat_screen.dart';
-import 'screens/chats_list_screen.dart';
+import 'screens/buyer_chat_list.dart';
+import 'screens/farmer_chat_list.dart';
 import 'screens/farmer/farmer_reports_screen.dart';
 import 'screens/buyer/buyer_reports_screen.dart';
 
