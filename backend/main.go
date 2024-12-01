@@ -980,7 +980,7 @@ func getFarmInfo(w http.ResponseWriter, r *http.Request) {
 
 	// Query to fetch inventory items (resources) for the farm
 	resourceQuery := `
-		SELECT name, type, quantity 
+		SELECT itemid, name, type, quantity 
 		FROM inventory_item 
 		WHERE farmid = $1
 	`
@@ -997,13 +997,14 @@ func getFarmInfo(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var resourceName string
 		var resourceType string
-		var quantity int
-		if err := rows.Scan(&resourceName, &resourceType, &quantity); err != nil {
+		var quantity, itemId int
+		if err := rows.Scan(&itemId, &resourceName, &resourceType, &quantity); err != nil {
 			log.Printf("Error scanning inventory item: %v", err)
 			http.Error(w, "Error reading resource data", http.StatusInternalServerError)
 			return
 		}
 		resources = append(resources, map[string]interface{}{
+			"itemId":   itemId,
 			"name":     resourceName,
 			"type":     resourceType,
 			"quantity": quantity,
@@ -1052,6 +1053,7 @@ func updateFarmInfo(w http.ResponseWriter, r *http.Request) {
 		Size      float64 `json:"size"`
 		Location  string  `json:"location"`
 		Resources []struct {
+			ItemId   int    `json:"itemid"`
 			Type     string `json:"type"`
 			Name     string `json:"name"`
 			Quantity int    `json:"quantity"`
@@ -1076,26 +1078,24 @@ func updateFarmInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Delete existing resources for the farm
-	deleteResourcesQuery := `DELETE FROM inventory_item WHERE farmid = $1`
-	_, err = db.Exec(deleteResourcesQuery, farmId)
-	if err != nil {
-		log.Printf("Error deleting existing resources: %v", err)
-		http.Error(w, "Failed to update resources", http.StatusInternalServerError)
-		return
-	}
+	updateQuery := `
+    UPDATE inventory_item
+    SET type = $1, name = $2, quantity = $3, price = $4
+    WHERE itemid = $5;
+`
 
-	// Insert new resources
-	insertResourceQuery := `
-        INSERT INTO inventory_item (farmid, type, name, quantity)
-        VALUES ($1, $2, $3, $4)
-    `
-
+	// Loop through resources and update each
 	for _, resource := range requestBody.Resources {
-		_, err = db.Exec(insertResourceQuery, farmId, resource.Type, resource.Name, resource.Quantity)
+		_, err := db.Exec(
+			updateQuery,
+			resource.Type, // $1: New type
+			resource.Name, // $2: New name
+			resource.Quantity,
+			resource.ItemId, // $7: Existing name
+		)
 		if err != nil {
-			log.Printf("Error inserting resource: %v", err)
-			http.Error(w, "Failed to insert resources", http.StatusInternalServerError)
+			log.Printf("Error updating resource: %v", err)
+			http.Error(w, "Failed to update resources", http.StatusInternalServerError)
 			return
 		}
 	}
