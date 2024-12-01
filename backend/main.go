@@ -1111,6 +1111,86 @@ func updateFarmInfo(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+type NewProduct struct {
+	FarmID      int      `json:"farmid"`
+	Name        string   `json:"name"`
+	Category    string   `json:"category"`
+	Price       float64  `json:"price"`
+	Quantity    int      `json:"quantity"`
+	Description string   `json:"description"`
+	Images      []string `json:"images"`
+}
+
+func createNewProduct(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		log.Printf("Invalid request method. Use POST.", http.StatusMethodNotAllowed)
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := r.URL.Path[len("/create_new_product/"):]
+	if _, err := strconv.Atoi(userID); err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	var newProduct NewProduct
+	if err := json.NewDecoder(r.Body).Decode(&newProduct); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Begin transaction
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("Failed to begin transaction: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Insert product data
+	productQuery := `INSERT INTO product (farmid, name, category, price, quantity, description, available) 
+					 VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	res, err := tx.Exec(productQuery, newProduct.FarmID, newProduct.Name, newProduct.Category,
+		newProduct.Price, newProduct.Quantity, newProduct.Description, newProduct.Quantity)
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Failed to insert product: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	productID, err := res.LastInsertId()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Failed to retrieve last insert ID: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Insert product images
+	imageQuery := `INSERT INTO pimage (productid, image_url) VALUES ($1, $2)`
+	for _, imageURL := range newProduct.Images {
+		_, err := tx.Exec(imageQuery, productID, imageURL)
+		if err != nil {
+			tx.Rollback()
+			log.Printf("Failed to insert product image: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		log.Printf("Failed to commit transaction: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "Product created successfully")
+}
+
 func main() {
 	var err error
 	db, err = initDB()
@@ -1143,6 +1223,7 @@ func main() {
 
 	http.HandleFunc("/get_product_info/", getProductInfo)
 	http.HandleFunc("/update_product_info/", updateProductInfo)
+	http.HandleFunc("/create_new_product/", createNewProduct)
 
 	http.HandleFunc("/get_farm_info/", getFarmInfo)
 	http.HandleFunc("/update_farm_info/", updateFarmInfo)
