@@ -1,3 +1,4 @@
+//somewhere here fetch data from the table
 export const userColumns = [
   { field: "id", headerName: "ID", width: 70 },
   {

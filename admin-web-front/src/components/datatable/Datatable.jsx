@@ -35,6 +35,8 @@ const Datatable = () => {
             <Link to="/users/test" style={{ textDecoration: "none" }}>
               <div className="viewButton">View</div>
             </Link>
+            {/*DELETE in the table */}
+
             <div
               className="deleteButton"
               onClick={() => handleDelete(params.row.id)}
@@ -48,6 +50,7 @@ const Datatable = () => {
                 handleStatusChange(params.row.id);
               }}
             >
+              {/*UPDATE in the table */}
               {params.row.status === "activated"
                 ? "Set to pending"
                 : "Set to activated"}

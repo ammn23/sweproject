@@ -17,11 +17,14 @@ const Home = () => {
           <Link to="/users" style={{ textDecoration: "none" }}>
             <Widget type="user" />
           </Link>
-          <Widget type="order" />
-          <Widget type="earning" />
-          <Widget type="balance" />
+          <Link to="/products" style={{ textDecoration: "none" }}>
+            <Widget type="products" />
+          </Link>
+          {/*<Widget type="earning" />
+          <Widget type="balance" />*/}
         </div>
-        <div className="charts">
+
+        {/*<div className="charts">
           <Featured />
           <Chart title="Last 6 Months (Revenue)" aspect={2 / 1} />
         </div>
@@ -29,6 +32,7 @@ const Home = () => {
           <div className="listTitle">Latest Transactions</div>
           <Table />
         </div>
+        */}
       </div>
     </div>
   );

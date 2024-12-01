@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'chat_screen.dart';
+import '../../Downloads/death_is_what_i_desire/lib/chat_screen.dart';
 
-class ChatsListScreen extends StatefulWidget {
+class BuyerChatsListScreen extends StatefulWidget {
+  final int userId;
+
+  const BuyerChatsListScreen({required this.userId, Key? key}) : super(key: key);
+
   @override
-  State<ChatsListScreen> createState() => _ChatsListScreenState();
+  State<BuyerChatsListScreen> createState() => _BuyerChatsListScreenState();
 }
 
-class _ChatsListScreenState extends State<ChatsListScreen> {
-  final int userId = 123;  // Mock user ID
-  final String userRole = "buyer";  // Mock role
+class _BuyerChatsListScreenState extends State<BuyerChatsListScreen> {
+  final int userId = 12;  // Mock user ID
 
   List<Map<String, dynamic>> _chats = [];
   bool _isLoading = true;
@@ -24,7 +27,7 @@ class _ChatsListScreenState extends State<ChatsListScreen> {
   Future<void> _fetchChats() async {
     try {
       final response = await http.get(
-        Uri.parse('https://your-api-url.com/chats?userId=$userId&role=$userRole'),
+        Uri.parse('https://your-api-url.com/chats?userId=${widget.userId}&role=buyer'),
       );
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
@@ -47,7 +50,7 @@ class _ChatsListScreenState extends State<ChatsListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Chats'),
+        title: Text('Buyer Chats'),
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
@@ -57,7 +60,7 @@ class _ChatsListScreenState extends State<ChatsListScreen> {
           final chat = _chats[index];
           return ListTile(
             leading: Icon(Icons.chat_bubble),
-            title: Text('${chat['buyerName']} & ${chat['farmerName']}'),
+            title: Text('Farmer: ${chat['farmerName']}'),
             subtitle: Text('Chat ID: ${chat['chatId']}'),
             onTap: () {
               Navigator.push(
@@ -65,7 +68,7 @@ class _ChatsListScreenState extends State<ChatsListScreen> {
                 MaterialPageRoute(
                   builder: (context) => ChatScreen(
                     chatId: chat['chatId'],
-                    userId: userId,
+                    userId: widget.userId,
                   ),
                 ),
               );
