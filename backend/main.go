@@ -1080,8 +1080,8 @@ func updateFarmInfo(w http.ResponseWriter, r *http.Request) {
 
 	updateQuery := `
     UPDATE inventory_item
-    SET type = $1, name = $2, quantity = $3, price = $4
-    WHERE itemid = $5;
+    SET type = $1, name = $2, quantity = $3
+    WHERE itemid = $4;
 `
 
 	// Loop through resources and update each
