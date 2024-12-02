@@ -8,7 +8,8 @@ import 'screens/farmer/farmerregistration.dart';  // Import FarmerRegistrationPa
 import 'screens/farmer/farmerdashboard.dart';  // Import FarmerDashboardPage
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/chat_screen.dart';
-import 'screens/chats_list_screen.dart';
+import 'screens/farmer/farmer_chat_list.dart';
+import 'screens/buyer/buyer_chat_list.dart';
 import 'screens/farmer/farmer_reports_screen.dart';
 import 'screens/buyer/buyer_reports_screen.dart';
 
@@ -78,7 +79,8 @@ class FarmersMarketApp extends StatelessWidget {
         '/farmerregistration': (context) => const FarmerRegistrationPage(),
         '/buyerregistration': (context) => const BuyerRegistrationPage(),
         '/chatscreen':(context)=> const ChatScreen(chatId: 3,userId:7) ,
-        '/chats_list_screen':(context)=> ChatsListScreen() ,
+        '/farmer_chat_list':(context)=> FarmerChatList(userId:12) ,
+        '/buyer_chat_list':(context)=> BuyerChatList(userId:14) ,
         '/farmer_reports_screen':(context)=>FarmerReportsScreen(userId:7),
         '/buyer_reports_screen':(context)=>BuyerReportsScreen(userId:8),
       },
@@ -135,21 +137,28 @@ class HomePage extends StatelessWidget {
 
             ElevatedButton(
               onPressed: () {
-                Navigator.pushNamed(context, '/chatscreen'); // Navigate to LoginPage
+                Navigator.pushNamed(context, '/farmer_chat_list'); 
               },
-              child: const Text('Chatscreen'),
+              child: const Text('Farmer chats'),
             ),
 
             ElevatedButton(
               onPressed: () {
-                Navigator.pushNamed(context, '/farmer_reports_screen'); // Navigate to LoginPage
+                Navigator.pushNamed(context, '/buyer_chat_list'); 
+              },
+              child: const Text('Buyer chats'),
+            ),
+
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/farmer_reports_screen'); 
               },
               child: const Text('Farmer reports screen'),
             ),
             
             ElevatedButton(
               onPressed: () {
-                Navigator.pushNamed(context, '/buyer_reports_screen'); // Navigate to LoginPage
+                Navigator.pushNamed(context, '/buyer_reports_screen'); 
               },
               child: const Text('Buyer reports screen'),
             ),
