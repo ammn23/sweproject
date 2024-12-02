@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	_ "github.com/lib/pq"
 )
@@ -1215,220 +1214,6 @@ func createNewProduct(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Product created successfully with ID: %d", productID)
 }
 
-// Struct Definitions
-type DeliveryOption struct {
-	Method string  `json:"method"`
-	Cost   float64 `json:"cost"`
-}
-
-type Notification struct {
-	UserID  int    `json:"user_id"`
-	Title   string `json:"title"`
-	Message string `json:"message"`
-	Time    string `json:"time"`
-}
-
-type ReportRequest struct {
-	UserID     int    `json:"user_id"`
-	ReportType string `json:"report_type"`
-	StartDate  string `json:"start_date"`
-	EndDate    string `json:"end_date"`
-}
-
-// Handlers
-
-// 3.8 Delivery Management
-func getDeliveryOptions(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query("SELECT method, cost FROM delivery_options")
-	if err != nil {
-		http.Error(w, "Couldn't get delivery options", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	var options []DeliveryOption
-	for rows.Next() {
-		var option DeliveryOption
-		if err := rows.Scan(&option.Method, &option.Cost); err != nil {
-			http.Error(w, "Error processing delivery data", http.StatusInternalServerError)
-			return
-		}
-		options = append(options, option)
-	}
-	json.NewEncoder(w).Encode(options)
-}
-
-func calculateDelivery(w http.ResponseWriter, r *http.Request) {
-	var request struct {
-		Method      string  `json:"method"`
-		TotalAmount float64 `json:"total_amount"`
-	}
-
-	err := json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
-		http.Error(w, "Incorrect input", http.StatusBadRequest)
-		return
-	}
-
-	var cost float64
-	err = db.QueryRow("SELECT cost FROM delivery_options WHERE method = $1", request.Method).Scan(&cost)
-	if err == sql.ErrNoRows {
-		http.Error(w, "The delivery method is not available", http.StatusBadRequest)
-		return
-	} else if err != nil {
-		http.Error(w, "Error in calculating the shipping cost", http.StatusInternalServerError)
-		return
-	}
-
-	totalCost := request.TotalAmount + cost
-	response := map[string]float64{
-		"delivery_cost": cost,
-		"total_cost":    totalCost,
-	}
-	json.NewEncoder(w).Encode(response)
-}
-
-// 3.9 Reporting and Analytics
-func generateReport(w http.ResponseWriter, r *http.Request) {
-	var req ReportRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request format", http.StatusBadRequest)
-		return
-	}
-
-	var query string
-	switch req.ReportType {
-	case "sales":
-		query = "SELECT date, revenue, product, quantity FROM sales_data WHERE date BETWEEN $1 AND $2"
-	case "inventory":
-		query = "SELECT product, stock, low_stock_threshold FROM inventory_data"
-	case "buyer":
-		query = "SELECT date, amount, product FROM buyer_data WHERE user_id = $1 AND date BETWEEN $2 AND $3"
-	default:
-		http.Error(w, "Invalid report type", http.StatusBadRequest)
-		return
-	}
-
-	rows, err := db.Query(query, req.StartDate, req.EndDate)
-	if err != nil {
-		http.Error(w, "Report generation error", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	var report []map[string]interface{}
-	cols, _ := rows.Columns()
-	for rows.Next() {
-		row := make(map[string]interface{})
-		values := make([]interface{}, len(cols))
-		for i := range values {
-			values[i] = new(interface{})
-		}
-		rows.Scan(values...)
-		for i, col := range cols {
-			row[col] = *(values[i].(*interface{}))
-		}
-		report = append(report, row)
-	}
-	json.NewEncoder(w).Encode(report)
-}
-
-// Handler for generating downloadable JSON reports
-func downloadReport(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Only the POST method is allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req ReportRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request format", http.StatusBadRequest)
-		return
-	}
-
-	// Query based on report type
-	var query string
-	switch req.ReportType {
-	case "sales":
-		query = "SELECT date, revenue, product, quantity FROM sales_data WHERE date BETWEEN $1 AND $2"
-	case "inventory":
-		query = "SELECT product, stock, low_stock_threshold FROM inventory_data"
-	case "buyer":
-		query = "SELECT date, amount, product FROM buyer_data WHERE user_id = $1 AND date BETWEEN $2 AND $3"
-	default:
-		http.Error(w, "Invalid report type", http.StatusBadRequest)
-		return
-	}
-
-	rows, err := db.Query(query, req.StartDate, req.EndDate)
-	if err != nil {
-		http.Error(w, "Error receiving report data", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	var report []map[string]interface{}
-	cols, _ := rows.Columns()
-	for rows.Next() {
-		row := make(map[string]interface{})
-		values := make([]interface{}, len(cols))
-		for i := range values {
-			values[i] = new(interface{})
-		}
-		rows.Scan(values...)
-		for i, col := range cols {
-			row[col] = *(values[i].(*interface{}))
-		}
-		report = append(report, row)
-	}
-
-	// Create a temporary file for the JSON report
-	fileName := fmt.Sprintf("%s_report_%d.json", req.ReportType, time.Now().Unix())
-	file, err := os.Create(fileName)
-	if err != nil {
-		http.Error(w, "Error creating the report file", http.StatusInternalServerError)
-		return
-	}
-	defer file.Close()
-
-	// Write the report to the file
-	jsonEncoder := json.NewEncoder(file)
-	jsonEncoder.SetIndent("", "  ")
-	if err := jsonEncoder.Encode(report); err != nil {
-		http.Error(w, "Error writing data to a file", http.StatusInternalServerError)
-		return
-	}
-
-	// Serve the file for download
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
-	w.Header().Set("Content-Type", "application/json")
-	http.ServeFile(w, r, fileName)
-
-	// Cleanup the temporary file after serving
-	go func() {
-		time.Sleep(1 * time.Minute)
-		os.Remove(fileName)
-	}()
-}
-
-// 3.10 Notifications
-func sendNotification(w http.ResponseWriter, r *http.Request) {
-	var notification Notification
-	if err := json.NewDecoder(r.Body).Decode(&notification); err != nil {
-		http.Error(w, "Invalid notification data", http.StatusBadRequest)
-		return
-	}
-
-	_, err := db.Exec("INSERT INTO notifications (user_id, title, message, time) VALUES ($1, $2, $3, $4)",
-		notification.UserID, notification.Title, notification.Message, time.Now())
-	if err != nil {
-		http.Error(w, "Error sending notification", http.StatusInternalServerError)
-		return
-	}
-
-	w.Write([]byte("The notification has been sent successfully"))
-}
-
 func main() {
 	var err error
 	db, err = initDB()
@@ -1462,15 +1247,12 @@ func main() {
 	http.HandleFunc("/get_product_info/", getProductInfo)
 	http.HandleFunc("/update_product_info/", updateProductInfo)
 	http.HandleFunc("/create_new_product/", createNewProduct)
+	http.HandleFunc("/add_to_included_in", addToIncludedIn)
+	http.HandleFunc("/create_payment", createPayment)
+	http.HandleFunc("/create_order", createOrder)
 
 	http.HandleFunc("/get_farm_info/", getFarmInfo)
 	http.HandleFunc("/update_farm_info/", updateFarmInfo)
-
-	http.HandleFunc("/delivery/options", getDeliveryOptions)
-	http.HandleFunc("/delivery/calculate", calculateDelivery)
-	http.HandleFunc("/reports/generate", generateReport)
-	http.HandleFunc("/reports/download", downloadReport)
-	http.HandleFunc("/notifications/send", sendNotification)
 
 	fmt.Println("Server is running at http://localhost:8080")
 	log.Println("Server started on port 8080")
