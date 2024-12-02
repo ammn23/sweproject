@@ -10,6 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/chat_screen.dart';
 import 'screens/buyer/buyer_chat_list.dart';
 import 'screens/farmer/farmer_chat_list.dart';
+import 'screens/farmer/farmer_chat_list.dart';
+import 'screens/buyer/buyer_chat_list.dart';
 import 'screens/farmer/farmer_reports_screen.dart';
 import 'screens/buyer/buyer_reports_screen.dart';
 
@@ -78,9 +80,12 @@ class FarmersMarketApp extends StatelessWidget {
         '/login': (context) => const LoginPage(),
         '/farmerregistration': (context) => const FarmerRegistrationPage(),
         '/buyerregistration': (context) => const BuyerRegistrationPage(),
-        '/chatscreen':(context)=> const ChatScreen(chatId: 3,userId:7) ,
+       /* '/chatscreen':(context)=> const ChatScreen(chatId: 3,userId:7) ,
         '/farmer_chat_list':(context)=> FarmerChatsListScreen(userId:7) ,
         '/buyer_chat_list':(context)=> BuyerChatsListScreen(userId:8) ,
+        '/farmer_chat_list':(context)=> FarmerChatList(userId:12) ,
+        '/buyer_chat_list':(context)=> BuyerChatList(userId:14) ,
+        */
         '/farmer_reports_screen':(context)=>FarmerReportsScreen(userId:7),
         '/buyer_reports_screen':(context)=>BuyerReportsScreen(userId:8),
       },
@@ -143,6 +148,13 @@ class HomePage extends StatelessWidget {
             ),
 
              ElevatedButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/buyer_chat_list'); 
+              },
+              child: const Text('Buyer chats'),
+            ),
+
+            ElevatedButton(
               onPressed: () {
                 Navigator.pushNamed(context, '/buyer_chat_list'); 
               },
