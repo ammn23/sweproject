@@ -5,14 +5,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 
+	"syscall"
+	"time"
+
+	//"github.com/gorilla/websocket"
 	_ "github.com/lib/pq"
 )
 
@@ -1214,6 +1218,450 @@ func createNewProduct(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Product created successfully with ID: %d", productID)
 }
 
+// Delivery options structure
+type DeliveryOption struct {
+	Method    string  `json:"method"`
+	Cost      float64 `json:"cost"`
+	Available bool    `json:"available"`
+}
+
+// Order structure (Updated to use 'user_id' instead of 'buyer_id')
+type Order struct {
+	UserID          int     `json:"user_id"` // Changed from 'buyer_id' to 'user_id'
+	DeliveryMethod  string  `json:"delivery_method"`
+	DeliveryAddress string  `json:"delivery_address"`
+	PaymentMethod   string  `json:"payment_method"`
+	TotalCost       float64 `json:"total_cost"`
+}
+
+// In-memory data for delivery options
+var deliveryOptions = []DeliveryOption{
+	{Method: "Home Delivery", Cost: 3.0, Available: true},
+	{Method: "Pick-Up Points", Cost: 0.0, Available: true},
+	{Method: "Third-Party Delivery", Cost: 5.0, Available: true},
+}
+
+// Function to handle getting delivery options
+func getDeliveryOptions(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == http.MethodGet {
+		// Return available delivery options
+		json.NewEncoder(w).Encode(deliveryOptions)
+		return
+	}
+	http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+}
+
+// Function to handle creating an order
+func createOrder(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		var order Order
+
+		// Read and log the raw request body
+		bodyBytes, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Unable to read request body", http.StatusBadRequest)
+			return
+		}
+		log.Println("Received order request body:", string(bodyBytes)) // Log the request body for debugging
+
+		// Decode the incoming JSON body into the Order struct
+		if err := json.Unmarshal(bodyBytes, &order); err != nil {
+			log.Println("Error decoding JSON:", err) // Log the error for debugging
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		// Check if selected delivery method is available
+		selectedMethod := order.DeliveryMethod
+		var deliveryCost float64
+		var validMethod bool
+		for _, option := range deliveryOptions {
+			if strings.EqualFold(option.Method, selectedMethod) && option.Available {
+				deliveryCost = option.Cost
+				validMethod = true
+				break
+			}
+		}
+
+		if !validMethod {
+			http.Error(w, "Selected delivery method is unavailable", http.StatusBadRequest)
+			return
+		}
+
+		// Calculate total cost (Assuming you have a way to calculate the order total)
+		totalOrderCost := order.TotalCost + deliveryCost
+
+		// Return the order details along with calculated total cost
+		order.TotalCost = totalOrderCost
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(order)
+		return
+	}
+
+	http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+}
+
+// SalesReportData represents the data for the sales report
+type SalesReportData struct {
+	TotalSales         float64   `json:"totalSales"`
+	TotalRevenue       float64   `json:"totalRevenue"`
+	TopSellingProducts []string  `json:"topSellingProducts"`
+	ReportGeneratedAt  time.Time `json:"reportGeneratedAt"`
+}
+
+// fetchSalesData queries sales data based on report type (daily, weekly, monthly)
+func fetchSalesData(farmerID int, startDate, endDate time.Time, reportType string) ([]map[string]interface{}, error) {
+	var query string
+
+	// Adjust the query based on the report type (daily, weekly, monthly)
+	switch reportType {
+	case "daily":
+		query = `
+			SELECT p.name AS product_name, SUM(ci.quantity) AS total_quantity, SUM(ci.quantity * p.price) AS total_sales
+			FROM cart c
+			JOIN included_in ci ON c.cartid = ci.cartid
+			JOIN product p ON ci.productid = p.productid
+			WHERE c.date_ordered BETWEEN $1 AND $2 AND c.farmerid = $3
+			GROUP BY p.name, c.date_ordered
+			ORDER BY total_sales DESC
+		`
+	case "weekly":
+		query = `
+			SELECT p.name AS product_name, SUM(ci.quantity) AS total_quantity, SUM(ci.quantity * p.price) AS total_sales
+			FROM cart c
+			JOIN included_in ci ON c.cartid = ci.cartid
+			JOIN product p ON ci.productid = p.productid
+			WHERE c.date_ordered BETWEEN $1 AND $2 AND c.farmerid = $3
+			GROUP BY p.name, EXTRACT(week FROM c.date_ordered)
+			ORDER BY total_sales DESC
+		`
+	case "monthly":
+		query = `
+			SELECT p.name AS product_name, SUM(ci.quantity) AS total_quantity, SUM(ci.quantity * p.price) AS total_sales
+			FROM cart c
+			JOIN included_in ci ON c.cartid = ci.cartid
+			JOIN product p ON ci.productid = p.productid
+			WHERE c.date_ordered BETWEEN $1 AND $2 AND c.farmerid = $3
+			GROUP BY p.name, EXTRACT(month FROM c.date_ordered)
+			ORDER BY total_sales DESC
+		`
+	default:
+		return nil, fmt.Errorf("invalid report type: %s", reportType)
+	}
+
+	// Execute the query
+	rows, err := db.Query(query, startDate, endDate, farmerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Process and return the sales data
+	var salesData []map[string]interface{}
+	for rows.Next() {
+		var productName string
+		var totalSales float64
+		var totalQuantity int
+		if err := rows.Scan(&productName, &totalQuantity, &totalSales); err != nil {
+			return nil, err
+		}
+		salesData = append(salesData, map[string]interface{}{
+			"product_name":   productName,
+			"total_quantity": totalQuantity,
+			"total_sales":    totalSales,
+		})
+	}
+	return salesData, nil
+}
+
+// Function to generate the sales report
+func generateSalesReport(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get query parameters
+	userIdStr := r.URL.Query().Get("userId")
+	startDateStr := r.URL.Query().Get("startDate")
+	endDateStr := r.URL.Query().Get("endDate")
+	reportType := r.URL.Query().Get("reportType")
+
+	// Parse userId
+	userId, err := strconv.Atoi(userIdStr)
+	if err != nil {
+		http.Error(w, "Invalid userId format", http.StatusBadRequest)
+		return
+	}
+
+	// Parse startDate and endDate
+	startDate, err := time.Parse("2006-01-02", startDateStr)
+	if err != nil {
+		http.Error(w, "Invalid start date format", http.StatusBadRequest)
+		return
+	}
+
+	endDate, err := time.Parse("2006-01-02", endDateStr)
+	if err != nil {
+		http.Error(w, "Invalid end date format", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch sales data
+	salesData, err := fetchSalesData(userId, startDate, endDate, reportType)
+	if err != nil {
+		http.Error(w, "Failed to retrieve sales data", http.StatusInternalServerError)
+		return
+	}
+
+	// Process the sales data
+	var totalSales, totalRevenue float64
+	var topSellingProducts []string
+	for _, data := range salesData {
+		totalSales += data["total_sales"].(float64)
+		totalRevenue += data["total_sales"].(float64) // Assuming price * quantity is total_sales
+		topSellingProducts = append(topSellingProducts, data["product_name"].(string))
+	}
+
+	// Generate and send the report
+	report := SalesReportData{
+		TotalSales:         totalSales,
+		TotalRevenue:       totalRevenue,
+		TopSellingProducts: topSellingProducts,
+		ReportGeneratedAt:  time.Now(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(report)
+}
+
+// BuyerReportData represents the data for the buyer report
+type BuyerReportData struct {
+	TotalPurchases    int       `json:"totalPurchases"`
+	TotalSpent        float64   `json:"totalSpent"`
+	PreferredProducts []string  `json:"preferredProducts"`
+	ReportGeneratedAt time.Time `json:"reportGeneratedAt"`
+}
+
+// fetchBuyerPurchaseData queries the purchase data for the buyer within the date range
+func fetchBuyerPurchaseData(buyerID int, startDate, endDate time.Time) ([]map[string]interface{}, error) {
+	query := `
+		SELECT p.name AS product_name, SUM(ci.quantity) AS total_quantity, SUM(ci.quantity * p.price) AS total_spent
+		FROM cart c
+		JOIN included_in ci ON c.cartid = ci.cartid
+		JOIN product p ON ci.productid = p.productid
+		WHERE c.buyerid = $1 AND c.date_ordered BETWEEN $2 AND $3
+		GROUP BY p.name
+	`
+
+	rows, err := db.Query(query, buyerID, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var purchaseData []map[string]interface{}
+	for rows.Next() {
+		var productName string
+		var totalSpent float64
+		var totalQuantity int
+		if err := rows.Scan(&productName, &totalQuantity, &totalSpent); err != nil {
+			return nil, err
+		}
+		purchaseData = append(purchaseData, map[string]interface{}{
+			"product_name": productName,
+			"quantity":     totalQuantity,
+			"total_spent":  totalSpent,
+		})
+	}
+	return purchaseData, nil
+}
+
+// Function to generate the buyer report
+func generateBuyerReport(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get query parameters
+	userIdStr := r.URL.Query().Get("userId")
+	startDateStr := r.URL.Query().Get("startDate")
+	endDateStr := r.URL.Query().Get("endDate")
+
+	// Parse userId
+	userId, err := strconv.Atoi(userIdStr)
+	if err != nil {
+		http.Error(w, "Invalid userId format", http.StatusBadRequest)
+		return
+	}
+
+	// Parse startDate and endDate
+	startDate, err := time.Parse("2006-01-02", startDateStr)
+	if err != nil {
+		http.Error(w, "Invalid start date format", http.StatusBadRequest)
+		return
+	}
+
+	endDate, err := time.Parse("2006-01-02", endDateStr)
+	if err != nil {
+		http.Error(w, "Invalid end date format", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch buyer purchase data
+	purchaseData, err := fetchBuyerPurchaseData(userId, startDate, endDate)
+	if err != nil {
+		http.Error(w, "Failed to retrieve purchase data", http.StatusInternalServerError)
+		return
+	}
+
+	// Process the purchase data
+	var totalPurchases int
+	var totalSpent float64
+	var preferredProducts []string
+	for _, purchase := range purchaseData {
+		totalPurchases += purchase["quantity"].(int)
+		totalSpent += purchase["total_spent"].(float64)
+		preferredProducts = append(preferredProducts, purchase["product_name"].(string))
+	}
+
+	// Generate and send the report
+	report := BuyerReportData{
+		TotalPurchases:    totalPurchases,
+		TotalSpent:        totalSpent,
+		PreferredProducts: preferredProducts,
+		ReportGeneratedAt: time.Now(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(report)
+}
+
+// InventoryReportData represents the data for the inventory report
+type InventoryReportData struct {
+	LowStockCount     int       `json:"lowStockCount"`
+	ReportGeneratedAt time.Time `json:"reportGeneratedAt"`
+}
+
+// fetchInventoryData queries the inventory data for the given farm and checks for low stock
+func fetchInventoryData(farmerID int) ([]map[string]interface{}, error) {
+	query := `
+		SELECT p.name AS product_name, i.quantity AS total_quantity
+		FROM inventory_item i
+		JOIN product p ON i.farmid = p.farmid
+		WHERE i.farmid = $1 AND i.quantity < 10
+		ORDER BY i.quantity ASC
+	`
+
+	rows, err := db.Query(query, farmerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var inventoryData []map[string]interface{}
+	for rows.Next() {
+		var productName string
+		var totalQuantity int
+		if err := rows.Scan(&productName, &totalQuantity); err != nil {
+			return nil, err
+		}
+		inventoryData = append(inventoryData, map[string]interface{}{
+			"product_name":   productName,
+			"total_quantity": totalQuantity,
+		})
+	}
+	return inventoryData, nil
+}
+
+// Function to generate the inventory report
+func generateInventoryReport(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get query parameters
+	userIdStr := r.URL.Query().Get("userId")
+
+	// Parse userId
+	userId, err := strconv.Atoi(userIdStr)
+	if err != nil {
+		http.Error(w, "Invalid userId format", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch inventory data
+	inventoryData, err := fetchInventoryData(userId)
+	if err != nil {
+		http.Error(w, "Failed to retrieve inventory data", http.StatusInternalServerError)
+		return
+	}
+
+	// Process the inventory data
+	var lowStockCount int
+	for _, data := range inventoryData {
+		if data["total_quantity"].(int) < 10 {
+			lowStockCount++
+		}
+	}
+
+	// Generate and send the report
+	report := InventoryReportData{
+		LowStockCount:     lowStockCount,
+		ReportGeneratedAt: time.Now(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(report)
+}
+
+// sendOrderStatusNotification sends a notification when an order status changes
+func sendOrderStatusNotification(orderID, userID int, newStatus string) error {
+	// Create the notification message
+	message := fmt.Sprintf("Your order (ID: %d) status has changed to: %s", orderID, newStatus)
+
+	// Insert the notification into the database
+	_, err := db.Exec(`
+		INSERT INTO public.notification (recipientid, message, status)
+		VALUES ($1, $2, $3)`,
+		userID, message, "unread")
+
+	if err != nil {
+		return fmt.Errorf("failed to insert notification: %v", err)
+	}
+
+	// Here, we would trigger the real-time notification (e.g., WebSocket or Push Notification)
+
+	return nil
+}
+
+// This function is triggered when the order status is updated in the database
+func updateOrderStatus(w http.ResponseWriter, r *http.Request) {
+	// Parse the order status from the request
+	var orderID int
+	var userID int
+	var newStatus string
+
+	// You would extract the data (orderID, userID, newStatus) from the request body or query parameters
+	// For simplicity, we're hardcoding values
+	orderID = 123 // Example order ID
+	userID = 6    // Example user ID (buyer)
+	newStatus = "Shipped"
+
+	// Send notification to the buyer (or user)
+	err := sendOrderStatusNotification(orderID, userID, newStatus)
+	if err != nil {
+		http.Error(w, "Failed to send notification", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "Order status updated and notification sent.")
+}
+
 func main() {
 	var err error
 	db, err = initDB()
@@ -1250,6 +1698,16 @@ func main() {
 
 	http.HandleFunc("/get_farm_info/", getFarmInfo)
 	http.HandleFunc("/update_farm_info/", updateFarmInfo)
+
+	// Setup routes for delivery options and order creation 3.8
+	http.HandleFunc("/delivery_options", getDeliveryOptions)
+	http.HandleFunc("/create_order", createOrder)
+	// Setup routes 3.9(reports)
+	http.HandleFunc("/reports/farmer/sales", generateSalesReport)
+	http.HandleFunc("/reports/farmer/inventory", generateInventoryReport)
+	http.HandleFunc("/reports/buyer", generateBuyerReport)
+	//3.10
+	//http.HandleFunc("/ws", handleConnections)
 
 	fmt.Println("Server is running at http://localhost:8080")
 	log.Println("Server started on port 8080")
