@@ -3,6 +3,7 @@ import 'farmershowpl.dart';
 import 'farmercreatepl.dart';
 import '../buyer/chat.dart';
 import 'farmerdashboard.dart';
+import 'farmer_chat_list.dart';
 
 class MainNavigationPage extends StatefulWidget {
   final int userId;
@@ -26,7 +27,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
           FarmerDashboard(userId: widget.userId, name: widget.name),
           ProductListPage(userId: widget.userId, name: widget.name),
           PlCreatePage(userId: widget.userId, name: widget.name), // Replace with your create product page
-          ChatPage(), // Replace with your chat page
+          FarmerChatsListScreen(userId: widget.userId), // Replace with your chat page
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(

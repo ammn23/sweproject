@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+
 void main() {
   runApp(const FarmersMarketApp());
 }
@@ -13,9 +14,6 @@ class FarmersMarketApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Farmer Registration',
-      theme: ThemeData(
-        primarySwatch: Colors.green,
-      ),
       home: const FarmerRegistrationPage(),
     );
   }

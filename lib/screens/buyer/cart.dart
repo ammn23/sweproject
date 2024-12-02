@@ -181,6 +181,7 @@ class _CartPageState extends State<CartPage> {
             ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: 2, // Highlight Cart
+        indicatorColor: Colors.blue,
         onDestinationSelected: (index) {
           if (index == 0) {
             Navigator.pushReplacement(

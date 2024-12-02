@@ -5,6 +5,7 @@ import 'dart:convert'; // For JSON decoding
 import 'farminfo.dart';
 import 'farmerinfo.dart';
 import 'farmereditpl.dart';
+import 'farmer_reports_screen.dart';
 
 class FarmerDashboard extends StatefulWidget {
   final int userId;
@@ -22,7 +23,6 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
   List<dynamic> farms = []; // List to hold multiple farms
   bool _isLoading = true;
   String errorMessage = '';
-  
 
   @override
   void initState() {
@@ -65,7 +65,6 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -81,7 +80,6 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                       Text('Welcome, $name!',
                           style: const TextStyle(fontSize: 20)),
                       const SizedBox(height: 20),
-
 
                       // Heading for Farmer Info
                       const Text(
@@ -156,6 +154,17 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                             );
                           },
                         ),
+                      ),
+
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => FarmerReportsScreen(userId: widget.userId)),
+                          );
+                        },
+                        child: Text('Reports'),
                       ),
                     ],
                   )

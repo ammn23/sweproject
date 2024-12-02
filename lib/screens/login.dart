@@ -44,7 +44,6 @@ class _LoginPageState extends State<LoginPage> {
           final userId = responseData['userId'];
           final name = responseData['name'];
 
-
           // Get FCM token after login
           FirebaseMessaging messaging = FirebaseMessaging.instance;
           messaging.getToken().then((token) {
@@ -62,20 +61,44 @@ class _LoginPageState extends State<LoginPage> {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => MainNavigationPage(userId: userId, name: name),
+                  builder: (context) =>
+                      MainNavigationPage(userId: userId, name: name),
                 ),
               );
             } else {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => BuyerDashboard(userId: userId, name: name),
+                  builder: (context) =>
+                      BuyerDashboard(userId: userId, name: name),
                 ),
               );
             }
           }
+        } else if (response.statusCode == 403) {
+          setState(() {
+            errorMessage = 'Your account is not verified yet';
+          });
+        } else if (response.statusCode == 400) {
+          setState(() {
+            errorMessage = 'Incorrect email/username, password, or role.';
+          });
+        } else if (response.statusCode == 404) {
+          setState(() {
+            errorMessage = 'User not found';
+          });
+        } else if (response.statusCode == 500) {
+          setState(() {
+            errorMessage = 'Internal server error';
+          });
+        } else if (response.statusCode == 401) {
+          setState(() {
+            errorMessage = 'Invalid password';
+          });
         } else {
-          // Handle different errors (similar to your current code)
+          setState(() {
+            errorMessage = 'An error occurred. Please try again.';
+          });
         }
       } catch (e) {
         setState(() {
@@ -111,7 +134,8 @@ class _LoginPageState extends State<LoginPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextFormField(
-                decoration: const InputDecoration(labelText: 'Email or Username'),
+                decoration:
+                    const InputDecoration(labelText: 'Email or Username'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your email or username';
@@ -135,7 +159,8 @@ class _LoginPageState extends State<LoginPage> {
                 decoration: const InputDecoration(labelText: 'Role'),
                 value: role,
                 items: ['Farmer', 'Buyer']
-                    .map((role) => DropdownMenuItem(value: role, child: Text(role)))
+                    .map((role) =>
+                        DropdownMenuItem(value: role, child: Text(role)))
                     .toList(),
                 onChanged: (value) => setState(() => role = value ?? 'Farmer'),
                 validator: (value) {
@@ -159,5 +184,3 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
-
-

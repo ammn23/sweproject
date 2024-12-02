@@ -2494,9 +2494,10 @@ func main() {
 	http.HandleFunc("/get_product_info/", getProductInfo)
 	http.HandleFunc("/update_product_info/", updateProductInfo)
 	http.HandleFunc("/create_new_product/", createNewProduct)
-	http.HandleFunc("/add_to_included_in", addToIncludedIn)
+	/*http.HandleFunc("/add_to_included_in", addToIncludedIn)
 	http.HandleFunc("/create_payment", createPayment)
 	http.HandleFunc("/create_order", createOrder)
+	*/
 
 	http.HandleFunc("/get_farm_info/", getFarmInfo)
 	http.HandleFunc("/update_farm_info/", updateFarmInfo)

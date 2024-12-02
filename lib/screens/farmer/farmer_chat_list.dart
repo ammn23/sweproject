@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'chat_screen.dart';
+import '../chat_screen.dart';
+
 
 class FarmerChatsListScreen extends StatefulWidget {
   final int userId;
 
-  const FarmerChatsListScreen({required this.userId, Key? key}) : super(key: key);
+  const FarmerChatsListScreen({required this.userId, super.key});
 
   @override
   State<FarmerChatsListScreen> createState() => _FarmerChatsListScreenState();
@@ -27,7 +28,8 @@ class _FarmerChatsListScreenState extends State<FarmerChatsListScreen> {
   Future<void> _fetchChats() async {
     try {
       final response = await http.get(
-        Uri.parse('https://your-api-url.com/chats?userId=${widget.userId}&role=farmer'),
+        Uri.parse('http://10.0.2.2:8080/chats?userId=${widget.userId}&role=farmer'),
+    
       );
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
@@ -50,7 +52,9 @@ class _FarmerChatsListScreenState extends State<FarmerChatsListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+
         title: Text('Farmer Chats'),
+
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
@@ -60,7 +64,10 @@ class _FarmerChatsListScreenState extends State<FarmerChatsListScreen> {
           final chat = _chats[index];
           return ListTile(
             leading: Icon(Icons.chat_bubble),
+
             title: Text('Buyer: ${chat['buyerName']}'),
+
+
             subtitle: Text('Chat ID: ${chat['chatId']}'),
             onTap: () {
               Navigator.push(
@@ -79,3 +86,4 @@ class _FarmerChatsListScreenState extends State<FarmerChatsListScreen> {
     );
   }
 }
+

@@ -5,6 +5,7 @@ import 'buyerinfo.dart';
 import 'buyerproductlisting.dart';
 import 'cart.dart';
 import 'chat.dart';
+import 'buyer_reports_screen.dart';
 
 class BuyerDashboard extends StatefulWidget {
   final int userId;
@@ -141,6 +142,17 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                     },
                   ),
           ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) =>
+                        BuyerReportsScreen(userId: widget.userId)),
+              );
+            },
+            child: Text('Go to Second Page'),
+          ),
         ],
       ),
     );
@@ -149,7 +161,10 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Buyer Dashboard'),automaticallyImplyLeading: false,),
+      appBar: AppBar(
+        title: const Text('Buyer Dashboard'),
+        automaticallyImplyLeading: false,
+      ),
       body: _getPage(_selectedIndex),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
