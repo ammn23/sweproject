@@ -1214,6 +1214,496 @@ func createNewProduct(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Product created successfully with ID: %d", productID)
 }
 
+type ProductResponse struct {
+	ID            int     `json:"id"`
+	Name          string  `json:"name"`
+	FarmName      string  `json:"farm_name"`
+	Price         float64 `json:"price"`
+	Available     int     `json:"available"`
+	FirstImageURL string  `json:"first_image_url"`
+	Category      string  `json:"category"`
+	Description   string  `json:"description"`
+}
+
+func searchProductsWithImages(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	query := `
+        SELECT 
+            p.productid AS id,
+            p.name,
+            f.name AS farm_name,
+            p.price,
+            p.quantity AS available,
+            (SELECT pi.image_url 
+             FROM pimage pi 
+             WHERE pi.productid = p.productid 
+             LIMIT 1) AS first_image_url,
+            p.category,
+            p.description
+        FROM product p
+        JOIN farm f ON p.farmid = f.farmid
+        WHERE 1=1
+    `
+
+	// Build query parameters
+	var params []interface{}
+	paramCount := 1
+
+	// Add category filter
+	if category := r.URL.Query().Get("category"); category != "" {
+		query += fmt.Sprintf(" AND p.category = $%d", paramCount)
+		params = append(params, category)
+		paramCount++
+	}
+
+	// Add price range filters
+	if minPrice := r.URL.Query().Get("min_price"); minPrice != "" {
+		if price, err := strconv.ParseFloat(minPrice, 64); err == nil {
+			query += fmt.Sprintf(" AND p.price >= $%d", paramCount)
+			params = append(params, price)
+			paramCount++
+		}
+	}
+
+	if maxPrice := r.URL.Query().Get("max_price"); maxPrice != "" {
+		if price, err := strconv.ParseFloat(maxPrice, 64); err == nil {
+			query += fmt.Sprintf(" AND p.price <= $%d", paramCount)
+			params = append(params, price)
+			paramCount++
+		}
+	}
+
+	// Add location filter
+	if location := r.URL.Query().Get("location"); location != "" {
+		query += fmt.Sprintf(" AND f.location LIKE $%d", paramCount)
+		params = append(params, "%"+location+"%")
+		paramCount++
+	}
+
+	// Add ordering
+	query += " ORDER BY p.price ASC"
+
+	// Execute query
+	rows, err := db.Query(query, params...)
+	if err != nil {
+		log.Printf("Database query error: %v", err)
+		http.Error(w, "Error fetching products", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var products []ProductResponse
+	for rows.Next() {
+		var p ProductResponse
+		var imageURL sql.NullString
+		err := rows.Scan(
+			&p.ID,
+			&p.Name,
+			&p.FarmName,
+			&p.Price,
+			&p.Available,
+			&imageURL,
+			&p.Category,
+			&p.Description,
+		)
+		if err != nil {
+			log.Printf("Error scanning row: %v", err)
+			continue
+		}
+		if imageURL.Valid {
+			p.FirstImageURL = imageURL.String
+		}
+		products = append(products, p)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(products)
+}
+
+// Structure for included_in table
+type IncludedInRequest struct {
+	UserID           int     `json:"user_id"`
+	ProductID        int     `json:"product_id"`
+	SelectedQuantity int     `json:"selected_quantity"`
+	TotalPrice       float64 `json:"total_price"`
+}
+
+func addToIncludedIn(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	log.Printf("Received request to add_to_included_in")
+
+	var req IncludedInRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("Error decoding request body: %v", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("Received data: %+v", req)
+
+	// First get buyerid from users table
+	var buyerID int
+	err := db.QueryRow(`
+        SELECT b.buyerid 
+        FROM buyer b 
+        JOIN users u ON b.userid = u.userid 
+        WHERE u.userid = $1`, req.UserID).Scan(&buyerID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Printf("Buyer with user ID %d not found", req.UserID)
+			http.Error(w, "Buyer not found", http.StatusNotFound)
+			return
+		}
+		log.Printf("Error getting buyer ID: %v", err)
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	// Check product availability
+	var available int
+	err = db.QueryRow("SELECT available FROM product WHERE productid = $1", req.ProductID).Scan(&available)
+	if err != nil {
+		log.Printf("Error checking product availability: %v", err)
+		http.Error(w, "Error checking product availability", http.StatusInternalServerError)
+		return
+	}
+
+	if available < req.SelectedQuantity {
+		log.Printf("Requested quantity %d exceeds available stock %d", req.SelectedQuantity, available)
+		http.Error(w, "Selected quantity exceeds available stock", http.StatusBadRequest)
+		return
+	}
+
+	// Start transaction
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("Error starting transaction: %v", err)
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	// Delete existing entry if exists
+	_, err = tx.Exec(`
+        DELETE FROM included_in 
+        WHERE productid = $1 AND buyerid = $2`,
+		req.ProductID, buyerID)
+	if err != nil {
+		log.Printf("Error deleting existing cart item: %v", err)
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	// Insert into included_in
+	_, err = tx.Exec(`
+        INSERT INTO included_in (productid, buyerid, quantity, price)
+        VALUES ($1, $2, $3, $4)`,
+		req.ProductID, buyerID, req.SelectedQuantity, req.TotalPrice)
+	if err != nil {
+		log.Printf("Error inserting into included_in: %v", err)
+		http.Error(w, "Error adding to cart", http.StatusInternalServerError)
+		return
+	}
+
+	// Update cart total
+	_, err = tx.Exec(`
+        DELETE FROM cart WHERE buyerid = $1`, buyerID)
+	if err != nil {
+		log.Printf("Error clearing existing cart entry: %v", err)
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	// Insert new cart total
+	_, err = tx.Exec(`
+        INSERT INTO cart (buyerid, total_cost)
+        VALUES ($1, $2)`,
+		buyerID, req.TotalPrice)
+	if err != nil {
+		log.Printf("Error updating cart total: %v", err)
+		http.Error(w, "Error updating cart", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Successfully added to cart"})
+}
+
+// Structure for payment creation
+type PaymentRequest struct {
+	BuyerID int       `json:"buyer_id"`
+	Date    time.Time `json:"date"`
+	Amount  float64   `json:"amount"`
+	Method  string    `json:"method"`
+	Status  string    `json:"status"`
+}
+
+// Handler for /create_payment
+func createPayment(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req PaymentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	var paymentID int
+	err := db.QueryRow(`
+        INSERT INTO payment (date, amount, method, status, buyerid)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING paymentid`,
+		req.Date, req.Amount, req.Method, req.Status, req.BuyerID).Scan(&paymentID)
+
+	if err != nil {
+		http.Error(w, "Failed to create payment", http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"payment_id": paymentID,
+	}
+	json.NewEncoder(w).Encode(response)
+}
+
+// Structure for order creation
+type OrderRequest struct {
+	BuyerID     int    `json:"buyer_id"`
+	DateOrdered string `json:"date_ordered"`
+	DateShipped string `json:"date_shipped"`
+	Address     string `json:"address"`
+	PaymentID   int    `json:"payment_id"`
+}
+
+// Handler for /create_order
+func createOrder(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req OrderRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	var orderID int
+	err := db.QueryRow(`
+        INSERT INTO orderu (status, date_ordered, date_shipped, address, buyerid, paymentid)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING orderid`,
+		"Processing", req.DateOrdered, req.DateShipped, req.Address, req.BuyerID, req.PaymentID).Scan(&orderID)
+
+	if err != nil {
+		http.Error(w, "Failed to create order", http.StatusInternalServerError)
+		return
+	}
+
+	// Create order in created_from table
+	_, err = db.Exec(`
+        INSERT INTO created_from (orderid, buyerid)
+        VALUES ($1, $2)`,
+		orderID, req.BuyerID)
+
+	if err != nil {
+		http.Error(w, "Failed to link order", http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"order_id": orderID,
+	}
+	json.NewEncoder(w).Encode(response)
+}
+
+type ChatMessage struct {
+	MessageID  int       `json:"messageid"`
+	Content    string    `json:"content"`
+	Timestamp  time.Time `json:"timestamp"`
+	SenderID   int       `json:"sender_id"`
+	ReceiverID int       `json:"receiver_id"`
+}
+
+type Negotiation struct {
+	NegotiationID int     `json:"negotiationid"`
+	ProductID     int     `json:"product_id"`
+	BuyerID       int     `json:"buyer_id"`
+	FarmerID      int     `json:"farmer_id"`
+	OfferedPrice  float64 `json:"offered_price"`
+	Status        string  `json:"status"`
+}
+
+func getOrCreateChat(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request struct {
+		BuyerID  int `json:"buyer_id"`
+		FarmerID int `json:"farmer_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	var chatID int
+	err := db.QueryRow(`
+        SELECT chatid 
+        FROM communication 
+        WHERE buyerid = $1 AND farmerid = $2
+    `, request.BuyerID, request.FarmerID).Scan(&chatID)
+
+	if err == sql.ErrNoRows {
+		err = db.QueryRow(`
+            INSERT INTO chat DEFAULT VALUES RETURNING chatid
+        `).Scan(&chatID)
+		if err != nil {
+			http.Error(w, "Error creating chat", http.StatusInternalServerError)
+			return
+		}
+
+		_, err = db.Exec(`
+            INSERT INTO communication (chatid, buyerid, farmerid)
+            VALUES ($1, $2, $3)
+        `, chatID, request.BuyerID, request.FarmerID)
+		if err != nil {
+			http.Error(w, "Error linking chat", http.StatusInternalServerError)
+			return
+		}
+	} else if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"chat_id": chatID,
+	})
+}
+
+func sendMessage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var msg struct {
+		ChatID     int    `json:"chat_id"`
+		SenderID   int    `json:"sender_id"`
+		ReceiverID int    `json:"receiver_id"`
+		Content    string `json:"content"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&msg); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	var messageID int
+	err := db.QueryRow(`
+        INSERT INTO message (timestamp, content, senderid, receiverid, chatid)
+        VALUES (CURRENT_TIMESTAMP, $1, $2, $3, $4)
+        RETURNING messageid
+    `, msg.Content, msg.SenderID, msg.ReceiverID, msg.ChatID).Scan(&messageID)
+
+	if err != nil {
+		http.Error(w, "Error sending message", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message_id": messageID,
+		"status":     "sent",
+	})
+}
+
+func getChatMessages(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	chatID := r.URL.Query().Get("chatId")
+	if chatID == "" {
+		http.Error(w, "chatId is required", http.StatusBadRequest)
+		return
+	}
+
+	rows, err := db.Query(`
+        SELECT messageid, content, timestamp, senderid, receiverid
+        FROM message
+        WHERE chatid = $1
+        ORDER BY timestamp ASC
+    `, chatID)
+	if err != nil {
+		http.Error(w, "Error fetching messages", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var messages []ChatMessage
+	for rows.Next() {
+		var msg ChatMessage
+		err := rows.Scan(&msg.MessageID, &msg.Content, &msg.Timestamp,
+			&msg.SenderID, &msg.ReceiverID)
+		if err != nil {
+			log.Printf("Error scanning message: %v", err)
+			continue
+		}
+		messages = append(messages, msg)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(messages)
+}
+
+func makeOffer(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var offer Negotiation
+	if err := json.NewDecoder(r.Body).Decode(&offer); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	var negotiationID int
+	err := db.QueryRow(`
+        INSERT INTO negotiations (farmerid, buyerid, offered_price, status)
+        VALUES ($1, $2, $3, 'Pending')
+        RETURNING negotiationid
+    `, offer.FarmerID, offer.BuyerID, offer.OfferedPrice).Scan(&negotiationID)
+
+	if err != nil {
+		http.Error(w, "Error creating offer", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"negotiation_id": negotiationID,
+		"status":         "Pending",
+	})
+}
+
 func main() {
 	var err error
 	db, err = initDB()
@@ -1247,9 +1737,19 @@ func main() {
 	http.HandleFunc("/get_product_info/", getProductInfo)
 	http.HandleFunc("/update_product_info/", updateProductInfo)
 	http.HandleFunc("/create_new_product/", createNewProduct)
+	http.HandleFunc("/add_to_included_in", addToIncludedIn)
+	http.HandleFunc("/create_payment", createPayment)
+	http.HandleFunc("/create_order", createOrder)
 
 	http.HandleFunc("/get_farm_info/", getFarmInfo)
 	http.HandleFunc("/update_farm_info/", updateFarmInfo)
+
+	http.HandleFunc("/products_with_images", searchProductsWithImages)
+
+	http.HandleFunc("/chat", getOrCreateChat)
+	http.HandleFunc("/messages", sendMessage)
+	http.HandleFunc("/chat_messages", getChatMessages)
+	http.HandleFunc("/make_offer", makeOffer)
 
 	fmt.Println("Server is running at http://localhost:8080")
 	log.Println("Server started on port 8080")
