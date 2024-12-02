@@ -164,7 +164,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                                 builder: (context) => FarmerReportsScreen(userId: widget.userId)),
                           );
                         },
-                        child: Text('Go to Second Page'),
+                        child: Text('Reports'),
                       ),
                     ],
                   )
