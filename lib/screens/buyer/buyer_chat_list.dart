@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../../Downloads/death_is_what_i_desire/lib/chat_screen.dart';
+import '../chat_screen.dart';
 
 class BuyerChatsListScreen extends StatefulWidget {
   final int userId;

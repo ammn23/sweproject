@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'chat_screen.dart';
+import '../chat_screen.dart';
 
 class FarmerChatsListScreen extends StatefulWidget {
   final int userId;
